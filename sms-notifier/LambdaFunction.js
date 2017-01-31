@@ -3,7 +3,7 @@ var AWS = require('aws-sdk');
 var sns = new AWS.SNS();
 
 // define configuration
-const phoneNumber ='+16073397201'; //For example, a U.S. phone number in E.164 format would appear as +1XXX5550100
+const phoneNumber =''; // Insert phone number here. For example, a U.S. phone number in E.164 format would appear as +1XXX5550100
 
 //main function which gets AWS Health data from Cloudwatch event
 exports.handler = (event, context, callback) => {
