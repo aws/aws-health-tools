@@ -7,7 +7,7 @@ AWS Health provides ongoing visibility into the state of your AWS resources, ser
 
 More information about AWS Health and Personal Health Dashboard (PHD) is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
 
-Setup and usage instructions are present for each tool in its respective directory:
+Setup and usage instructions are present for each tool in its respective directory: <br />
 [AWS Health event SMS notifier](sms-notifier/) <br />
 [AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/) <br />
 [AWS Health event Slack notifier](slack-notifier/) <br />
