@@ -8,9 +8,9 @@ AWS Health provides ongoing visibility into the state of your AWS resources, ser
 More information about AWS Health and Personal Health Dashboard (PHD) is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
 
 Setup and usage instructions are present for each tool in its respective directory:
-[AWS Health event SMS notifier](sms-notifier/)
-[AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/)
-[AWS Health event Slack notifier](slack-notifier/)
+[AWS Health event SMS notifier](sms-notifier/) <br />
+[AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/) <br />
+[AWS Health event Slack notifier](slack-notifier/) <br />
 [AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED Automated EC2 Instance stop](automated-actions/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED/)
 
 ### License
