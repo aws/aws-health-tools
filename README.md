@@ -1,0 +1,18 @@
+## AWS Health Tools 
+
+### Description
+The samples provided in AWS Health Tools can help you build automation and customized alerts in response to AWS Health events.
+
+AWS Health provides ongoing visibility into the state of your AWS resources, services, and accounts. The service gives you awareness and remediation guidance for resource performance or availability issues that may affect your applications that run on AWS. AWS Health provides relevant and timely information to help you manage events in progress, as well as be aware of and prepare for planned activities. The service delivers alerts and notifications triggered by changes in the health of AWS resources, so you get near-instant event visibility and guidance to help accelerate troubleshooting. 
+
+More information about AWS Health and Personal Health Dashboard (PHD) is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
+
+Setup and usage instructions are present for each tool in its respective directory:
+[AWS Health event SMS notifier](sms-notifier/)
+[AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/)
+[AWS Health event Slack notifier](slack-notifier/)
+[AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED Automated EC2 Instance stop](automated-actions/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED/)
+
+### License
+AWS Health Tools are licensed under the Apache 2.0 License.
+
