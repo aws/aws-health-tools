@@ -2,18 +2,18 @@
 
 ### Description
 
-This tool can be used to send custom text or SMS notifications via Amazon SNS when an AWS Health event happens by using AWS Lambda and Amazon CloudWatch Events. 
+This tool can be used to send custom text or SMS notifications via Amazon SNS when an AWS Health event happens by using AWS Lambda and Amazon CloudWatch Events.
 
 ### Setup and Usage
 
-1. Create an IAM role for the Lambda function to use. Attach the [IAM policy](IAMPolicy) to the role in the IAM console.
-Documentation on how to create an IAM policy is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html
-Documentation on how to create an IAM role for Lambda is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console
+Choose **Launch Stack** to launch the AWS Health SMS Notifier template in the US East (N. Virginia) Region in your account:
 
-2. Create a Lambda JavaScript function by using the [sample](LambdaFunction.js) provided and choose the IAM role created in step 1. Update the phone number in the configuration section. More information about Lambda is available here: http://docs.aws.amazon.com/lambda/latest/dg/getting-started.html
+[![Launch AWS Health SMS Notifier](../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=SmsNotifier&templateURL=https://s3.amazonaws.com/stroppad-us-east-1/aws-health/templates/sms-notifier.yml)
 
-3. Create a CloudWatch Events rule to trigger the Lambda function created in step 2 for AWS Health events.
-Documentation on how to create an AWS Health CloudWatch Events rule is available here: http://docs.aws.amazon.com/health/latest/ug/cloudwatch-events-health.html
+The CloudFormation template requires the following parameters:
+
+- AWS Health Tool configuration
+  - **Phone number**: The phone number to send notifications to.
 
 More information about AWS Health is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
 
@@ -21,5 +21,3 @@ Note that this is a just an example of how to set up automation with AWS Health,
 
 ### License
 AWS Health Tools are licensed under the Apache 2.0 License.
-
-
