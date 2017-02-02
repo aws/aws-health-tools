@@ -1,0 +1,125 @@
+Description: >
+  This template sets up AWS Health Tool to send custom text or SMS notifications via Amazon SNS when an AWS Health event happens by using AWS Lambda and Amazon CloudWatch Events.
+
+
+Parameters:
+  PhoneNumber:
+    Type: String
+    Default: +1XXX5550100
+    Description: The phone number to send notifications to.
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterLabels:
+      PhoneNumber:
+        default: "Phone number"
+    ParameterGroups:
+      - Label:
+          default: AWS Health Tool Configuration
+        Parameters:
+          - PhoneNumber
+
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+
+  LambdaRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: sms-notifier
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Action: sns:Publish
+            Resource: '*'
+          -
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+      Roles:
+        -
+          Ref: LambdaExecutionRole
+
+  SmsNotifierFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          PHONE_NUMBER: !Ref PhoneNumber
+      Code:
+        ZipFile: >
+          // Sample Lambda Function to send notifications via text when an AWS Health event happens
+
+          var AWS = require('aws-sdk');
+
+          var sns = new AWS.SNS();
+
+          //main function which gets AWS Health data from Cloudwatch event
+          
+          exports.handler = (event, context, callback) => {
+              //get phone number from Env Variable
+              var phoneNumber = process.env.PHONE_NUMBER;
+              //extract details from Cloudwatch event
+              eventName = event.detail.eventTypeCode
+              healthMessage = 'The following AWS Health event type has occured: ' + eventName + ' For more details, please see https://phd.aws.amazon.com/phd/home?region=us-east-1#/dashboard/open-issues';
+              //prepare message for SNS to publish
+              var snsPublishParams = {
+                  Message: healthMessage,
+                  PhoneNumber: phoneNumber,
+              };
+              sns.publish(snsPublishParams, function(err, data) {
+              if (err) {
+                  const snsPublishErrorMessage = `Error publishing AWS Health event to SNS`;
+                  console.log(snsPublishErrorMessage, err);
+                  callback(snsPublishErrorMessage);
+                  }
+              else {
+                  const snsPublishSuccessMessage = `Successfully got details from AWS Health event, ${eventName} and sent SMS via SNS.`;
+                  console.log(snsPublishSuccessMessage, data);
+                  callback(null, snsPublishSuccessMessage); //return success
+                  }
+              });
+          };
+      Runtime: nodejs4.3
+
+  AwsHealthEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: AWSHealthEventRule
+      EventPattern:
+        source:
+          - aws.health
+      State: ENABLED
+      Targets:
+        -
+          Arn: !GetAtt SmsNotifierFunction.Arn
+          Id: SmsNotifierLambdaFunction
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SmsNotifierFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt AwsHealthEventRule.Arn
