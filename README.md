@@ -13,6 +13,9 @@ Setup and usage instructions are present for each tool in its respective directo
 [AWS Health event Slack notifier](slack-notifier/) <br />
 [AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED Automated EC2 Instance stop](automated-actions/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED/)
 
+### Architecture
+![Architecture](images/AWSHealthToolsArchitecture.jpg)
+
 ### License
 AWS Health Tools are licensed under the Apache 2.0 License.
 
