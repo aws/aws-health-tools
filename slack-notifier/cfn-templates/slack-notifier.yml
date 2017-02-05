@@ -1,0 +1,115 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  SlackChannel:
+    Type: String
+    Description: 'Please enter your Slack channel name:'
+  HookURL:
+    Type: String
+    Description: 'Please enter the web hook url from Slack:'
+Resources:
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  LambdaRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: Stmt12349896368829
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Effect: Allow
+          Resource: arn:aws:logs:*:*:*
+      Roles:
+      - Ref: LambdaFunctionRole
+  SlackNotifierLambdaFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+        - LambdaFunctionRole
+        - Arn
+      Code:
+        ZipFile:
+          Fn::Join:
+          - ''
+          - - "#Sample Lambda Function to post notifications to a slack channel when
+              an AWS Health event happens\n"
+            - "from __future__ import print_function \n"
+            - "import boto3 \n"
+            - "import json \n"
+            - "import logging \n"
+            - "import os \n"
+            - "from urllib2 import Request, urlopen, URLError, HTTPError \n"
+            - "# Setting up logging \n"
+            - "logger = logging.getLogger() \n"
+            - "logger.setLevel(logging.INFO) \n"
+            - "# main function \n"
+            - "def handler(event, context): \n"
+            - "  message =  str(event['detail']['eventDescription'][0]['latestDescription']
+              \ + \"\\n\\n<https://phd.aws.amazon.com/phd/ home?region=us-east-1#/event-log?eventID=\"
+              + event['detail']['eventArn'] + \"|Click here> for details.\") \n"
+            - "  json.dumps(message) \n"
+            - "  slack_message = { \n"
+            - "    'channel': '"
+            - Ref: SlackChannel
+            - "',\n    'text': message \n"
+            - "} \n"
+            - "  logger.info(str(slack_message)) \n"
+            - '  req = Request("'
+            - Ref: HookURL
+            - "\", json.dumps(slack_message)) \n"
+            - "  try: \n"
+            - "   response = urlopen(req) \n"
+            - "   response.read() \n"
+            - "   logger.info(\"Message posted to: %s\", slack_message['channel'])
+              \n"
+            - "  except HTTPError as e: \n"
+            - "   logger.error(\"Request failed : %d %s\", e.code, e.reason) \n"
+            - "  except URLError as e: \n"
+            - "   logger.error(\"Server connection failed: %s\", e.reason) \n"
+      Runtime: python2.7
+      Timeout: '60'
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+        - SlackNotifierLambdaFn
+        - Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - CloudWatchEventRule
+        - Arn
+  CloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: EventRule
+      EventPattern:
+        source:
+        - prem.test
+      State: ENABLED
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - SlackNotifierLambdaFn
+          - Arn
+        Id: SlackNotifierLambdaFn
