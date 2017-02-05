@@ -1,0 +1,204 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "SNSTopicName": {
+      "Type": "String",
+      "Description": "Please enter your SNS Topic Name. (SNS Topic must exist in the same region where this stack is launched)."
+    }
+  },
+  "Resources": {
+    "LambdaFunctionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/"
+      }
+    },
+    "LambdaRolePolicies": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "LambdaPolicy",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "Stmt1477516473539",
+              "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Effect": "Allow",
+              "Resource": "arn:aws:logs:*:*:*"
+            },
+            {
+              "Sid": "Stmt1484080345748",
+              "Action": [
+                "sns:Publish"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws:sns:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":",
+                    {
+                      "Ref": "SNSTopicName"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        "Roles": [
+          {
+            "Ref": "LambdaFunctionRole"
+          }
+        ]
+      }
+    },
+    "SNSPublishFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaFunctionRole",
+            "Arn"
+          ]
+        },
+        "Environment": {
+          "Variables": {
+            "SNSARN": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:aws:sns:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  ":",
+                  {
+                    "Ref": "SNSTopicName"
+                  }
+                ]
+              ]
+            }
+          }
+        },
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "",
+              [
+                "// Sample Lambda Function to send notifications to a SNS topic when an AWS Health event happens\n",
+                "var AWS = require('aws-sdk');\n",
+                "var sns = new AWS.SNS();\n",
+                "\n",
+                "// define configuration\n",
+                "const snsTopic =process.env.SNSARN; //use ARN",
+                "\n",
+                "//main function which gets AWS Health data from Cloudwatch event\n",
+                "exports.handler = (event, context, callback) => {\n",
+                "    //extract details from Cloudwatch event\n",
+                "    healthMessage = event.detail.eventDescription[0].latestDescription + ' For more details, please see https://phd.aws.amazon.com/phd/home?region=us-east-1#/dashboard/open-issues';\n",
+                "    eventName = event.detail.eventTypeCode\n",
+                "    //prepare message for SNS to publish\n",
+                "    var snsPublishParams = {\n",
+                "        Message: healthMessage, \n",
+                "        Subject: eventName,\n",
+                "        TopicArn: snsTopic\n",
+                "    };\n",
+                "    sns.publish(snsPublishParams, function(err, data) {\n",
+                "    if (err) {\n",
+                "        const snsPublishErrorMessage = `Error publishing AWS Health event to SNS`;\n",
+                "        console.log(snsPublishErrorMessage, err);\n",
+                "        callback(snsPublishErrorMessage);\n",
+                "        } \n",
+                "    else {\n",
+                "        const snsPublishSuccessMessage = `Successfully got details from AWS Health event, ${eventName} and published to SNS topic.`;\n",
+                "        console.log(snsPublishSuccessMessage, data);\n",
+                "        callback(null, snsPublishSuccessMessage); //return success\n",
+                "        }\n",
+                "    });\n",
+                "};"
+              ]
+            ]
+          }
+        },
+        "Runtime": "nodejs4.3",
+        "Timeout": "25"
+      }
+    },
+    "LambdaInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "SNSPublishFunction",
+            "Arn"
+          ]
+        },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "CloudWatchEventRule",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "CloudWatchEventRule": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Description": "EventRule",
+        "EventPattern": {
+          "source": [
+            "aws.health"
+          ]
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "SNSPublishFunction",
+                "Arn"
+              ]
+            },
+            "Id": "SNSPublishFunction"
+          }
+        ]
+      }
+    }
+  }
+}
