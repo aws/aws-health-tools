@@ -10,7 +10,7 @@ You can automatically stop or terminate EC2 instances that have degraded instanc
 Documentation on how to create an IAM policy is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html
 Documentation on how to create an IAM role for Lambda is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console
 
-2. Create a Lambda JavaScript function by using the [sample](LambdaFunction.js) provided and choose the IAM role created in step 1. The sample Lambda function will stop EC2 instances when AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED events are generated. This is useful for situations where there is data redundancy and fault tolerance (for example, when using Auto Scaling).  Be sure to set the appropriate tags and region in the configuration section of the Lambda function. 
+2. Create a Lambda JavaScript function by using the [sample](LambdaFunction.js) provided and choose the IAM role created in step 1. The sample Lambda function will stop EC2 instances when AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED events are generated. This is useful for situations where there is data redundancy and fault tolerance (for example, when using Auto Scaling).  Be sure to set the appropriate tag key and value in the configuration section of the Lambda function. 
 More information about Lambda is available here: http://docs.aws.amazon.com/lambda/latest/dg/getting-started.html
 
 3. Create a CloudWatch Events rule to trigger the Lambda function created in step 2 matching the AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED event.
