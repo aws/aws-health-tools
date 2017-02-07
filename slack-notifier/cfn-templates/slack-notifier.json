@@ -89,7 +89,7 @@
                 "# main function \n",
 
                 "def handler(event, context): \n",
-                "  message =  str(event['detail']['eventDescription'][0]['latestDescription']  + \"\\n\\n<https://phd.aws.amazon.com/phd/ home?region=us-east-1#/event-log?eventID=\" + event['detail']['eventArn'] + \"|Click here> for details.\") \n",
+                "  message =  str(event['detail']['eventDescription'][0]['latestDescription'] + \"\\n\\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=\" + event['detail']['eventArn'] + \"|Click here> for details.\") \n",
                 "  json.dumps(message) \n",
                 "  slack_message = { \n",
                 "    'channel': '",
