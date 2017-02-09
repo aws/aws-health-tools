@@ -14,7 +14,8 @@
         {
             "Sid": "Stmt1477680111144",
             "Action": [
-                "ec2:DescribeNetworkInterfaces"
+                "ec2:DescribeNetworkInterfaces",
+				"ec2:DeleteNetworkInterface"
             ],
             "Effect": "Allow",
             "Resource": "*"

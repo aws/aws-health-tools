@@ -1,7 +1,7 @@
 ## AWS Health AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED
 
 ### Description
-ELB has attempted to scale or perform maintenance on one or more Elastic Load Balancers and this operation has been impacted by a lack of available ENIs in the account. ELB needs available ENIs to successfully do node operations. Clearing this up requires either freeing up ENIs (such as by deleting unattached ENIs), terminating instances or requesting a limit increase via http://docs.aws.amazon.com/general/latest/gr/aws_service_limits.html.
+ELB has attempted to scale or perform maintenance on one or more Elastic Load Balancers and this operation has been impacted by a lack of available ENIs in the associated region. ELB needs available ENIs to successfully do node operations. Clearing this up requires either freeing up ENIs (such as by deleting unattached ENIs), terminating instances or requesting a limit increase via http://docs.aws.amazon.com/general/latest/gr/aws_service_limits.html.
 
 ### Setup and Usage
 You can automatically delete unattached ENIs using Amazon Cloudwatch events and AWS Lambda using the following instructions:
