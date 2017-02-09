@@ -14,10 +14,14 @@ function getMatchingInstances(affectedEntities){
     for ( var i=0; i < affectedEntities.length; i+=1 )
     {
         var instanceId = affectedEntities[i].entityValue;
-        // check that tags match
-        if (affectedEntities[i].tags[[tagKey]] == tagValue){
-            // add instanceid to the array
-            instances.push(instanceId);
+        // check that the instance has tags
+        if (typeof (affectedEntities[i].tags) != 'undefined') {
+            // check that tags match
+            if (affectedEntities[i].tags[[tagKey]] == tagValue){
+                // add instanceid to the array
+                instances.push(instanceId);
+            }
+            else console.log ('The following instance does not match the configured tag: ', instanceId);
         }
         else console.log ('The following instance does not match the configured tag: ', instanceId);
     }
@@ -47,7 +51,8 @@ function getParams(instances, dryRun){
 
 //main function which gets AWS Health data from Cloudwatch event
 exports.handler = (event, context, callback) => {
-
+    console.log(event);
+    console.log(JSON.stringify(event));
     // function to handle ec2 API response
     function handleResponse(err, data) {
         if (err) {                                                          // an error occurred
@@ -90,7 +95,7 @@ exports.handler = (event, context, callback) => {
         else ec2.stopInstances(instancesParams, handleResponse);
 
     } else {
-        console.log("No instances in the event match the required tags, exiting without any action");
+        console.log('No instances in the event match the required tags, exiting without any action');
         callback(null, awsHealthSuccessMessage);
     }
 
