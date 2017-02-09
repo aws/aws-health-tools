@@ -15,7 +15,24 @@ Follow these steps to configure the webhook in Slack:
 
 4. Copy the webhook URL from the setup instructions and use it in the AWS Setup section that follows.
 
-### AWS Setup
+
+### AWS setup using CloudFormation 
+
+#### CloudFormation
+Choose **Launch Stack** to launch the AWS Health SMS Notifier template in the US East (N. Virginia) Region in your account:
+ 
+
+<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=SlackNotifier&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/slack-notifier.json" title="Launch Stack"><img src="../images/cloudformation-launch-stack.png" alt="Launch Stack" /></a>
+ 
+The CloudFormation template requires the following parameters:
+ 
+*SlackChannel* - A Slack channel name where you would like the notifications to get pushed.
+ 
+*HookURL* - Incoming web hook url from Slack setup.
+
+
+
+### AWS Manual Setup
 
 1. Create an IAM role for the Lambda function to use. Attach the [IAM policy](IAMPolicy) to the role in the IAM console.
 Documentation on how to create an IAM policy is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html
