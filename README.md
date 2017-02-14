@@ -11,7 +11,8 @@ Setup and usage instructions are present for each tool in its respective directo
 [AWS Health event SMS notifier](sms-notifier/) <br />
 [AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/) <br />
 [AWS Health event Slack notifier](slack-notifier/) <br />
-[AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED Automated EC2 Instance stop](automated-actions/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED/)
+[AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED Automated EC2 Instance stop](automated-actions/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED/)  <br />
+[AWS Codepipeline disable stage transition triggered when AWS Health issue event generated](automated-actions/AWS_Codepipeline_Disable_Stage_Transition/)
 
 ### Architecture
 ![Architecture](images/AWSHealthToolsArchitecture.jpg)
