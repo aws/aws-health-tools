@@ -1,7 +1,7 @@
 ## AWS Health Issue Amazon Cloudwatch event trigger AWS CodePipeline Disable Stage Transition using AWS Lambda
 
 ### Description
-This sample highlights you can automatically stop a deployment when an Amaazon EC2 issue occurs by disabling the stage transition in AWS Code Pipeline in response to an AWS Health Issue. 
+This sample highlights you can automatically stop a deployment when an Amazon EC2 issue occurs by disabling the stage transition in AWS Code Pipeline in response to an AWS Health Issue. 
 
 ### Setup and Usage
 
