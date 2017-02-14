@@ -1,0 +1,29 @@
+## AWS Health Issue Amazon Cloudwatch event trigger AWS CodePipeline Disable Stage Transition using AWS Lambda
+
+### Description
+This sample highlights you can automatically stop a deployment when an AWS issue occurs by disabling the stage transition in AWS Code Pipeline in response to an AWS Health Issue. 
+
+### Setup and Usage
+
+#### Cloudformation Setup
+Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account:
+
+[![Launch AWS Health SMS Notifier](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthCodePipelineDisableDisableStageTransition&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/AWSHealthCodePipelineDisableDisableStageTransition.json)
+
+#### Manual Setup
+1. Create an IAM role for the Lambda function to use. Attach the [IAM policy](IAMPolicy) to the role in the IAM console.
+Documentation on how to create an IAM policy is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html
+Documentation on how to create an IAM role for Lambda is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console
+
+2. Create a Lambda JavaScript function by using the [sample](LambdaFunction.js) provided and choose the IAM role created in step 1. Be sure to update the configuration of the Lambda function per your needs.
+More information about Lambda is available here: http://docs.aws.amazon.com/lambda/latest/dg/getting-started.html
+
+3. Create a CloudWatch Events rule to trigger the Lambda function created in step 2 matching an AWS Health Issue. An example of Cloudwatch rule event pattern for EC2 issues is [here](CloudwatchEventPattern).
+Documentation on how to create an AWS Health CloudWatch Events rule is available here: http://docs.aws.amazon.com/health/latest/ug/cloudwatch-events-health.html
+
+More information about AWS Health is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
+
+Note that this is a just an example of how to set up automation with AWS Health, Amazon CloudWatch Events, and AWS Lambda. We recommend testing the example and tailoring it to your environment before using it in your production environment.
+
+### License
+AWS Health Tools are licensed under the Apache 2.0 License.
