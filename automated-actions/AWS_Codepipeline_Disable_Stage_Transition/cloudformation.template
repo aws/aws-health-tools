@@ -1,0 +1,208 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "This template sets up AWS Health Tool to stop a deployment when an AWS issue occurs by disabling the stage transition in AWS Code Pipeline in response to an AWS Health Issue.",
+    "Metadata": {
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": {
+                        "default": "General Configuration"
+                    },
+                    "Parameters": [
+                        "pipelineName",
+                        "stageName"
+                    ]
+                }
+            ],
+            "ParameterLabels": {
+                "pipelineName": {
+                    "default": "pipelineName"
+                },
+                "stageName": {
+                    "default": "Beta"
+                }
+            }
+        }
+    },
+    "Parameters": {
+        "pipelineName": {
+            "Description": "The name of your AWS Pipeline",
+            "Type": "String",
+            "Default": "MyPipeline"
+        },
+        "stageName": {
+            "Description": "The name of your AWS Pipeline stage",
+            "Type": "String",
+            "Default": "Beta"
+        }
+    },
+    "Resources": {
+        "LambdaIAMRoleforCodepipelineDisableStageTransition": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "AWSCodepipelineDisableStageTransitionAndLambda",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "LambdaLogging",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": [
+                                        "arn:aws:logs:*:*:*"
+                                    ]
+                                },
+                                {
+                                    "Sid": "CodePipelineDisableStageTransition",
+                                    "Action": [
+										"codepipeline:DisableStageTransition"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "LambdaFunction": {
+            "Properties": {
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+								"// Sample Lambda Function to disable stage transition to pause deployments when an AWS Health issue event is generated.",
+								"var AWS = require('aws-sdk');",
+								"var codepipeline = new AWS.CodePipeline();",
+								"// define configuration",
+								"const pipelineName = process.env.pipelineName; //Pipeline Name",
+								"const stageName = process.env.stageName; //Stage Name (e.g. Beta)",
+								"//main function which gets AWS Health data from Cloudwatch event",
+								"exports.handler = (event, context, callback) => {",
+								"   //extract details from Cloudwatch event",
+								"   eventName = event.detail.eventTypeCode;",
+								"   //disable transitions into the next stage of the pipeline",
+								"   var params = {",
+								"       pipelineName: pipelineName,",
+								"       reason: 'AWS Health issue detected - please see AWS Personal Health Dashboard for more details',",
+								"       stageName: stageName,", 
+								"       transitionType: 'Inbound'",
+								"       };",
+								"   codepipeline.disableStageTransition(params, function(err, data) {",
+								"   if (err) {",
+								"       const errorMessage = `Error in disabling CodePipeline stage transition for pipeline, ${pipelineName} in response to AWS Health event: ${eventName}.`;",
+								"       console.log(errorMessage, err);",
+								"       callback(errorMessage);",
+								"   }",
+								"   else {",
+								"       const successMessage = `Successfully got details from AWS Health event, ${eventName}, and disabled stage transition to ${stageName} for pipeline, ${pipelineName}.`;",
+								"       console.log(successMessage, data);",
+								"       callback(null, successMessage); //return success",
+								"       }",
+								"   });",
+								"};",
+								""
+                            ]
+                        ]
+                    }
+                },
+                "Description": "Lambda Function to disable stage transition to pause deployments when an AWS Health issue event is generated",
+                "Handler": "index.handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaIAMRoleforCodepipelineDisableStageTransition",
+                        "Arn"
+                    ]
+                },
+                "Runtime": "nodejs4.3",
+                "Timeout": 120,
+                "Environment": {
+                    "Variables": {
+                        "pipelineName": {
+                            "Ref": "pipelineName"
+                        },
+                        "stageName": {
+                            "Ref": "stageName"
+                        }
+                    }
+                }
+            },
+            "Type": "AWS::Lambda::Function"
+        },
+        "LambdaPermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "LambdaFunction",
+                        "Arn"
+                    ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "CloudWatchEventRule",
+                        "Arn"
+                    ]
+                }
+            }
+        },
+        "CloudWatchEventRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "AWS Health EC2 Issues",
+                "EventPattern": {
+                    "source": [
+                        "aws.health"
+                    ],
+                    "detail-type": [
+                        "AWS Health Event"
+                    ],
+                    "detail": {
+                        "service": [
+                            "EC2"
+                        ],
+                        "eventTypeCategory": [
+                            "issue"
+                        ]
+                    }
+                },
+                "State": "ENABLED",
+                "Targets": [
+                    {
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "LambdaFunction",
+                                "Arn"
+                            ]
+                        },
+                        "Id": "CodePipelineDisableStageTransitionFunction"
+                    }
+                ]
+            }
+        }
+    }
+}
+
