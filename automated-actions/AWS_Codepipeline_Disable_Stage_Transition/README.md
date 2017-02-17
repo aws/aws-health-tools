@@ -10,6 +10,8 @@ Choose **Launch Stack** to launch the template in the US East (N. Virginia) Regi
 
 [![Launch AWS Health SMS Notifier](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthCodePipelineDisableDisableStageTransition&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/AWSHealthCodePipelineDisableDisableStageTransition.json)
 
+Please update your region, CodePipeline name and Stage name according to your requirements. 
+
 #### Manual Setup
 1. Create an IAM role for the Lambda function to use. Attach the [IAM policy](IAMPolicy) to the role in the IAM console.
 Documentation on how to create an IAM policy is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html
