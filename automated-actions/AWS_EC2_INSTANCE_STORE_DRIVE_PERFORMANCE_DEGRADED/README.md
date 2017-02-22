@@ -9,7 +9,7 @@ You can automatically stop or terminate EC2 instances that have degraded instanc
 #### CloudFormation
 Choose **Launch Stack** to launch the AWS Health SMS Notifier template in the US East (N. Virginia) Region in your account:
 
-[![Launch AWS Health Automated Action](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=SmsNotifier&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/aa-instance-store-degraded.json)
+[![Launch AWS Health Automated Action](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=EC2InstancStopuponInstanceStoreDegradation&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/aa-instance-store-degraded.json)
 
 The CloudFormation template requires the following parameters:
 
