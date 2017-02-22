@@ -1,0 +1,588 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+    SNSTopicName:
+        Type: String
+        Description: Please enter your SNS Topic Name. (SNS Topic must exist in the same region where this stack is launched).
+Resources:
+  CloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: AWS EBS Vol LostState Machine Execution Failed
+      Namespace: AWS/States
+      MetricName: ExecutionsFailed
+      Statistic: SampleCount
+      Period: '60'
+      EvaluationPeriods: '1'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: '1'
+      AlarmActions: 
+           - Fn::Join:
+                - "" 
+                - - "arn:aws:sns:"
+                  - !Ref "AWS::Region"
+                  - ":"
+                  - !Ref "AWS::AccountId"
+                  - ":"
+                  - !Ref "SNSTopicName"
+      Dimensions:
+      - Name: StateMachineArn
+        Value: !Ref VolLostStateMachine
+  LambdaInvokePermission: 
+    Type: "AWS::Lambda::Permission"
+    Properties: 
+      FunctionName: 
+        Fn::GetAtt: 
+          - "LFExecuteStateMachine"
+          - "Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: 
+        !GetAtt CloudWatchEventRule.Arn
+  CloudWatchEventRule: 
+    Type: "AWS::Events::Rule"
+    Properties: 
+      Description: "EventRule"
+      EventPattern: 
+            source:
+              - aws.health
+            detail-type:
+              - AWS Health Event
+            detail:
+              service:
+                - EBS
+              eventTypeCategory:
+                - issue
+              eventTypeCode:
+                - AWS_EBS_VOLUME_LOST
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: 
+            Fn::GetAtt: 
+              - "LFExecuteStateMachine"
+              - "Arn"
+          Id: "LFExecuteStateMachine"
+  ExecutionRole: 
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "lambda.amazonaws.com"
+                - Fn::Join:
+                    - "" 
+                    - - "states."
+                      - !Ref "AWS::Region"
+                      - ".amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: "Policies"
+          PolicyDocument: 
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "arn:aws:logs:*:*:*"
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "ec2:AttachVolume"
+                  - "ec2:CreateVolume"
+                  - "ec2:DescribeSnapshots"
+                  - "ec2:DescribeVolumes"
+                  - "ec2:DetachVolume"
+                  - "ec2:DescribeInstances"
+                  - "ec2:StartInstances"
+                  - "ec2:StopInstances"
+                Resource: "*"
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "lambda:InvokeFunction"
+                Resource:
+                  Fn::Join:
+                    - "" 
+                    - - "arn:aws:lambda:"
+                      - !Ref "AWS::Region"
+                      - ":"
+                      - !Ref "AWS::AccountId"
+                      - ":*"
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "states:StartExecution"
+                Resource: 
+                  Fn::Join:
+                    - "" 
+                    - - "arn:aws:states:"
+                      - !Ref "AWS::Region"
+                      - ":"
+                      - !Ref "AWS::AccountId"
+                      - ":*"
+  LFExecuteStateMachine: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Environment:
+        Variables:
+          StateMachine: !Ref VolLostStateMachine
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile:  |
+                    exports.handler = (event, context, callback) => {
+                        var AWS = require('aws-sdk');
+                        var stepfunctions = new AWS.StepFunctions();
+                        var statemachinearn = process.env.StateMachine;
+                        var params = {
+                            stateMachineArn: statemachinearn, /* required */
+                            input: JSON.stringify(event),
+                        };
+                        stepfunctions.startExecution(params, function(err, data) {
+                            if (err) console.log(err, err.stack); // an error occurred
+                            else     console.log(data);           // successful response
+                        });
+                        callback(null, event);
+                    };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFFindVolumeDetails: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+              var AWS = require('aws-sdk');
+              var ec2 = new AWS.EC2();
+              var volumes = event.resources;  
+              console.log("Describing volume ", volumes[0]);
+              var params = { Filters: [{ Name: "volume-id", Values: volumes }] };
+                ec2.describeVolumes(params, function(err, data) {   
+                  if (err) console.log(err, err.stack); 
+                  else {
+                    var result={};
+                    var key;
+                    if ( data.Volumes[0].Attachments.length > 0 ){
+                        console.log(data.Volumes[0].Attachments[0]);
+                    for( key in data.Volumes[0].Attachments) result=data.Volumes[0].Attachments[key];
+                    delete data.Volumes[0]["Attachments"];
+                    for( key in data.Volumes[0]) result[key]=data.Volumes[0][key];
+                    }
+                    else{
+                        console.log("Volume Not Attached");
+                          for( key in data.Volumes[0]) result[key]=data.Volumes[0][key];
+                          result["Device"]="None"
+                    }
+                    callback(null,result);
+                  } 
+                });  
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFFindLatestSnapshot: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2();
+                  var volume = event.VolumeId;
+                  console.log("Searching for snapshot of volume ",volume);
+                  var params = { Filters: [{ Name: "volume-id", Values: [volume] },{ Name: "progress",  Values : ["100%"]}] };      
+                    ec2.describeSnapshots(params, function(err, data) {   
+                      if (err) console.log(err, err.stack); 
+                        else {
+                        var dates=[];
+                        var snapshots=data.Snapshots;
+                        snapshots.forEach(function(value){dates.push(new Date(value.StartTime));});
+                          var maxDate = new Date(Math.max.apply(null,dates));
+                          if ( snapshots.length > 0 ){
+                              snapshotobj = snapshots.filter(function(o){return o.StartTime.getTime() === maxDate.getTime();});
+                              console.log("Found snapshot ",snapshotobj[0].SnapshotId," that was created on ", maxDate );
+                              event["LatestRestoreSnapshot"]= snapshotobj[0].SnapshotId
+                              result = event;
+                        }
+                        else{
+                              console.log("No Snapshot Found");
+                              result = "None"
+                        }
+                          callback(null,result);
+                          }
+                        });
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFStopInstance: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2();
+                  console.log("%j",event);
+                  console.log("Stopping ", event.InstanceId);
+                  
+                  var params = { InstanceIds: [event.InstanceId], Force: true };
+                  ec2.stopInstances(params, function(err, data) {
+                    if (err) console.log(err, err.stack); 
+                    else     callback(null, event);        
+                  });
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFCheckInstance: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2();
+                  console.log("%j",event);
+                  console.log("Stopping ", event.InstanceId);
+                  var params = {InstanceIds: [event.InstanceId]};
+                  ec2.describeInstances(params, function(err, data) {
+                      if (err) console.log(err, err.stack); // an error occurred
+                      else{
+                          var StatusCode = JSON.stringify(data.Reservations[0].Instances[0].State.Code)
+                          if (StatusCode == 80){
+                              console.log('Instance is stopped');
+                              callback(null,event);
+                          }
+                          else
+                          {
+                              context.fail("InstanceNotStopped");
+                              console.log('Instance is not stopped');
+                          }
+                      }
+                      });
+                  };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFDetachVolume: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2();
+                  voltodetach = event.VolumeId;
+                  var params = {VolumeId: voltodetach, Force: true};
+                  ec2.detachVolume(params, function(err, data) {
+                     if (err) console.log(err, err.stack); 
+                     else     callback(null, event);           
+                  });
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFCheckVolume: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2(); 
+                  console.log("%j",event);
+                  console.log("Checking if Available ", event.VolumeId);
+                  var params = {Filters: [{Name: "volume-id", Values: [event.VolumeId]}]};
+                  ec2.describeVolumes(params, function(err, data) {
+                        if (err) console.log(err, err.stack); 
+                        else {    
+                            console.log(JSON.stringify(data));
+                            var State = JSON.stringify(data.Volumes[0].State);
+                            if (State === '"available"')
+                            {
+                              console.log('Volume is available');
+                              callback(null,event);
+                            }
+                            else
+                            {
+                              context.fail("Volume Not available");
+                              console.log('Volume Not available');
+                            }
+                        }         
+                  });
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFRestoreSnapshot: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2();
+                  console.log("%j",event);
+                  //Create Volume
+                  var params;
+                  var VolAZ = event.AvailabilityZone;
+                  var VolSize = event.Size;
+                  var VolType = event.VolumeType;
+                  var VolIops = event.Iops;
+                  var VolEncrypted = event.Encrypted;            
+                  var VolSnapshotId = event.LatestRestoreSnapshot;
+                  if (VolType === '"io1"'){
+                      params = {SnapshotId: VolSnapshotId, AvailabilityZone: VolAZ, Size: VolSize, VolumeType: VolType,Iops: VolIops,Encrypted: VolEncrypted};
+                  }
+                  else {
+                      params = {SnapshotId: VolSnapshotId, AvailabilityZone: VolAZ, Size: VolSize, VolumeType: VolType,Encrypted: VolEncrypted};
+                  }
+                  ec2.createVolume(params, function(err, data) {
+                      if (err) console.log(err, err.stack);
+                      else {
+                          //Modify JSON Payload
+                          data["InstanceId"] = event.InstanceId;
+                          data["Device"] = event.Device;
+                          callback(null, data);
+                      }
+                  });     
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFAttachVolume: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2();
+                  var params = {Device: event.Device, InstanceId: event.InstanceId, VolumeId: event.VolumeId};
+                  ec2.attachVolume(params, function(err, data) {
+                  if (err) console.log(err, err.stack); 
+                  else     callback(null, data);         
+               });
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFCheckVolumeInuse: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2(); 
+                  console.log("%j",event);
+                  console.log("Checking if Available ", event.VolumeId);
+                  var params = {Filters: [{Name: "volume-id", Values: [event.VolumeId]}]};
+                  ec2.describeVolumes(params, function(err, data) {
+                        if (err) console.log(err, err.stack); 
+                        else {    
+                            console.log(JSON.stringify(data));
+                            var State = JSON.stringify(data.Volumes[0].State);
+                            if (State === '"in-use"')
+                            {
+                              console.log('Volume is in-use');
+                              callback(null,event);
+                            }
+                            else
+                            {
+                              context.fail("Volume Not in-use");
+                              console.log('Volume Not in-use');
+                            }
+                        }         
+                  });
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  LFStartInstance: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+              exports.handler = (event, context, callback) => {
+                  var AWS = require('aws-sdk');
+                  var ec2 = new AWS.EC2();
+                  console.log("%j",event);
+                  console.log("Starting ", event.InstanceId);
+                  
+                  var params = { InstanceIds: [event.InstanceId] };
+                  ec2.startInstances(params, function(err, data) {
+                    if (err) console.log(err, err.stack); 
+                    else     callback(null, data);        
+                  });
+              };
+      Runtime: "nodejs4.3"
+      Timeout: "25"
+  VolLostStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString: 
+                !Sub  
+                  - |-
+                    {
+                      "StartAt": "FindVolumeDetails",
+                      "States": {
+                        "FindVolumeDetails": {
+                          "Type": "Task",
+                          "Resource": "${ FindVol }" ,
+                          "Next": "CheckIfRootDev"
+                        },
+                        "CheckIfRootDev": {
+                          "Type": "Choice",
+                          "Choices": [
+                            {
+                              "Variable": "$.Device",
+                              "StringEquals": "/dev/xvda",
+                              "Next": "FindLatestSnapshot"
+                            },
+                            {
+                              "Variable": "$.Device",
+                              "StringEquals": "/dev/sda1",
+                              "Next": "FindLatestSnapshot"
+                            },
+                            {
+                              "Variable": "$.Device",
+                              "StringEquals": "None",
+                              "Next": "Detached"
+                            }
+                          ],
+                          "Default": "NotRoot"
+                        },
+                        "NotRoot": {
+                          "Type": "Fail",
+                          "Cause": "Volume is not /dev/xvda or /dev/sda1"
+                        },
+                        "Detached": {
+                          "Type": "Fail",
+                          "Cause": "Volume is not attached to instance as /dev/xvda or /dev/sda1"
+                        },
+                        "FindLatestSnapshot": {
+                          "Type": "Task",
+                          "Resource": "${FindSnap}",
+                          "Next": "CheckIfSnapshotExist"
+                        },
+                        "CheckIfSnapshotExist": {
+                          "Type": "Choice",
+                          "Choices": [
+                            {
+                              "Variable": "$",
+                              "StringEquals": "None",
+                              "Next": "NoSnapshot"
+                            }
+                          ],
+                          "Default": "StopInstance"
+                        },
+                        "NoSnapshot": {
+                          "Type": "Fail",
+                          "Cause": "No Snapshot Found for the Volume"
+                        },
+                        "StopInstance": {
+                          "Type": "Task",
+                          "Resource": "${StopInst}",
+                          "Next": "WaitInstanceStop"
+                        },
+                        "WaitInstanceStop": {
+                          "Type": "Task",
+                          "Resource": "${CheckInst}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "DetachRootVolume"
+                        },
+                        "DetachRootVolume": {
+                          "Type": "Task",
+                          "Resource": "${DetachVol}",
+                          "Next": "WaitDetachVolume"
+                        },
+                        "WaitDetachVolume": {
+                          "Type": "Task",
+                          "Resource": "${CheckVol}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "RestoreSnapshot"
+                        },
+                        "RestoreSnapshot": {
+                          "Type": "Task",
+                          "Resource": "${RestSnap}",
+                          "Next": "WaitVolumeCreated"
+                        },
+                        "WaitVolumeCreated": {
+                          "Type": "Task",
+                          "Resource": "${CheckVol}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "AttachNewVolume"
+                        },
+                        "AttachNewVolume": {
+                          "Type": "Task",
+                          "Resource": "${AttachVol}",
+                          "Next": "WaitVolumeAttached"
+                        },
+                        "WaitVolumeAttached": {
+                          "Type": "Task",
+                          "Resource": "${CheckVolInuse}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "StartInstance"
+                        },
+                        "StartInstance": {
+                          "Type": "Task",
+                          "Resource": "${StartInst}",
+                          "End": true
+                        }
+                      }
+                    }
+                  - { StartInst: !GetAtt LFStartInstance.Arn , CheckVolInuse: !GetAtt LFCheckVolumeInuse.Arn, AttachVol: !GetAtt LFAttachVolume.Arn,  RestSnap: !GetAtt LFRestoreSnapshot.Arn, CheckVol: !GetAtt LFCheckVolume.Arn, DetachVol: !GetAtt LFDetachVolume.Arn, FindVol: !GetAtt LFFindVolumeDetails.Arn, FindSnap: !GetAtt LFFindLatestSnapshot.Arn, StopInst: !GetAtt LFStopInstance.Arn, CheckInst: !GetAtt LFCheckInstance.Arn }
+      RoleArn: !GetAtt ExecutionRole.Arn
