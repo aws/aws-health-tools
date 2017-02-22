@@ -5,6 +5,16 @@ This tool can be used to send custom notifications to a SNS topic when an AWS He
 
 ### Setup and Usage
 
+#### Setup using CloudFormation 
+
+Choose **Launch Stack** to launch the AWS Health SNS Topic Publisher template in the US East (N. Virginia) Region in your account:
+ 
+<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthSNSTopicPublisher&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/sns-topic-publisher.json" title="Launch Stack"><img src="../images/cloudformation-launch-stack.png" alt="Launch Stack" /></a>
+
+Please update the region and the SNS topic name according to your requirements.
+
+#### Manual setup
+
 1. Create an IAM role for the Lambda function to use. Attach the [IAM policy](IAMPolicy) to the role in the IAM console.
 Documentation on how to create an IAM policy is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html
 Documentation on how to create an IAM role for Lambda is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console
