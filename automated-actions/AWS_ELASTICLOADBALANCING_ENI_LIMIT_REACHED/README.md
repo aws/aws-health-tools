@@ -10,7 +10,7 @@ Choose **Launch Stack** to launch the template in the US East (N. Virginia) Regi
 
 [![Launch AWS Health Code Pipeline Disable Stage Transition](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthElasticLoadBalancingENILimitReached&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/AWSHealthElasticLoadBalancingENILimitReached.json)
 
-Please update your region, CodePipeline name and Stage name according to your requirements. 
+Setting the Dry Run parameter to true (the default) will keep the script from actually doing deletions. Set it to false to enable deletion.
 
 #### Manual Setup
 You can automatically delete unattached ENIs using Amazon Cloudwatch events and AWS Lambda using the following instructions:
