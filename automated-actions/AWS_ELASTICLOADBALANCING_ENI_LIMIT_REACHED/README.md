@@ -8,9 +8,10 @@ ELB has attempted to scale or perform maintenance on one or more Elastic Load Ba
 #### Cloudformation Setup
 Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account:
 
-[![Launch AWS Health Code Pipeline Disable Stage Transition](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthElasticLoadBalancingENILimitReached&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/AWSHealthElasticLoadBalancingENILimitReached.json)
+[![Launch AWS Health Code Elastic Load Balancing ENI Limit Reached](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthElasticLoadBalancingENILimitReached&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/AWSHealthElasticLoadBalancingENILimitReached.json)
 
 Setting the Dry Run parameter to true (the default) will keep the script from actually doing deletions. Set it to false to enable deletion.
+Setting the Max ENI parameter (default 100) to a value higher than zero will limit the number of ENIs processed. Setting it to zero will cause the script to process all of the found unattached ENIs. Care should be used here as you can end up with the API calls being throttled by EC2. The script is configured for a limited number of retry attempts and in development testing 100 was found to be a good reliable value for Max ENIs.
 
 #### Manual Setup
 You can automatically delete unattached ENIs using Amazon Cloudwatch events and AWS Lambda using the following instructions:
@@ -29,6 +30,17 @@ Documentation on how to create an AWS Health CloudWatch Events rule is available
 More information about AWS Health is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
 
 Note that this is a just an example of how to set up automation with AWS Health, Amazon CloudWatch Events, and AWS Lambda. We recommend testing the example and tailoring it to your environment before using it in your production environment. 
+
+#### Testing structure
+You can use the following for testing the function via the Lambda console.
+Replace the region us-east-2 with the region containing your target ENIs.
+
+```
+{
+  "region": "us-east-2",
+  "detail": {"eventTypeCode": "AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED"}
+}
+```
 
 ### License
 AWS Health Tools are licensed under the Apache 2.0 License.

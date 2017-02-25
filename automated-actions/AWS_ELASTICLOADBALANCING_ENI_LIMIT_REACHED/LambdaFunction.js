@@ -3,6 +3,7 @@
 'use strict';
 var AWS = require('aws-sdk');
 const dryRun = ((process.env.DRY_RUN || 'true') == 'true');
+const maxEniToProcess = process.env.MAX_ENI || 100;
 
 //main function which gets AWS Health data from Cloudwatch event
 exports.handler = (event, context, callback) => {
@@ -31,9 +32,11 @@ exports.handler = (event, context, callback) => {
         }
         else 
         {
-            console.log('Found %s available ENI',data.NetworkInterfaces.length);
+			var numberToProcess = data.NetworkInterfaces.length;
+			if ((maxEniToProcess > 0) && (data.NetworkInterfaces.length > maxEniToProcess)) numberToProcess = maxEniToProcess;
+            console.log('Found %s available ENI; processing %s',data.NetworkInterfaces.length,numberToProcess);
             // for each interface, remove it
-            for ( var i=0; i < data.NetworkInterfaces.length; i+=1)
+            for ( var i=0; i < numberToProcess; i+=1)
             {
                 deleteNetworkInterface(data.NetworkInterfaces[i].NetworkInterfaceId,dryRun); 
             }
@@ -58,7 +61,7 @@ function deleteNetworkInterface (networkInterfaceId, dryrun) {
             switch (err.code)
             {
                 case 'DryRunOperation':
-                    console.log('Dry run attempt complete for %s', networkInterfaceId);
+                    console.log('Dry run attempt complete for %s after %s retries', networkInterfaceId, this.retryCount);
                     break;
                 case 'RequestLimitExceeded':
                     console.log('Request limit exceeded while processing %s after %s retries', networkInterfaceId, this.retryCount);
@@ -67,6 +70,6 @@ function deleteNetworkInterface (networkInterfaceId, dryrun) {
                     console.log(networkInterfaceId, err, err.stack);    
             }
         }
-        else console.log('ENI deleted: %s', networkInterfaceId);  // successful response
+        else console.log('ENI %s deleted after %s retries', networkInterfaceId, this.retryCount);  // successful response
     });
 }
