@@ -1,0 +1,257 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Automatically delete unused ENIs that are blocking ELB scaling using Amazon Cloudwatch events and AWS Lambda",
+    "Metadata": {
+        "LICENSE": "Copyright 2016 Amazon Web Services, Inc. or its affiliates. All Rights Reserved. This file is licensed to you under the AWS Customer Agreement (the \"License\"). You may not use this file except in compliance with the License. A copy of the License is located at http://aws.amazon.com/agreement/ . This file is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions and limitations under the License.",
+        "AWS::CloudFormation::Interface": {
+            "ParameterGroups": [
+                {
+                    "Label": {
+                        "default": "General Configuration"
+                    },
+                    "Parameters": [
+                        "DryRun",
+                        "MaxENI"
+                    ]
+                }
+            ],
+            "ParameterLabels": {
+                "DryRun": {
+                    "default": "Dry Run"
+                },
+                "MaxENI": {
+                    "default": "Maximum ENI to process"
+                }
+            }
+        }
+    },
+    "Parameters": {
+        "DryRun": {
+            "Description": "Set to true to test function without actually deleting ENIs",
+            "Type": "String",
+            "Default": "true",
+            "AllowedValues" : ["true", "false"]
+        },
+        "MaxENI": {
+            "Description": "Number of ENIs to process. Set to 0 to do all the function finds (this may result in account throttling)",
+            "Type": "Number",
+            "Default": "100"
+        }        
+    },
+    "Resources": {
+        "LambdaIAMRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "AELBInsufficientENIs",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "LambdaLogging",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": [
+                                        "arn:aws:logs:*:*:*"
+                                    ]
+                                },
+                                {
+                                    "Sid": "ENI",
+                                    "Action": [
+                                        "ec2:DescribeNetworkInterfaces",
+                                        "ec2:DeleteNetworkInterface"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "LambdaFunction": {
+            "Properties": {
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                                "// Sample Lambda Function to remove unattached ENIs in the region of the event when AWS Health AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED events are generated. ",
+                                "// This is useful for situations where you might have leftover ENIs that are not used and are preventing load balancer scaling",
+                                "'use strict';",
+                                "var AWS = require('aws-sdk');",
+                                "const dryRun = ((process.env.DRY_RUN || 'true') == 'true');",
+                                "const maxEniToProcess = process.env.MAX_ENI || 100;",
+                                "var ec2 = null; // scoping object so both functions can see it",
+                                "",
+                                "//main function which gets AWS Health data from Cloudwatch event",
+                                "exports.handler = (event, context, callback) => {",
+                                "    //extract details from Cloudwatch event",
+                                "    var eventName = event.detail.eventTypeCode;",
+                                "    var region = event.region;",
+                                "    const awsHealthSuccessMessage = `Successfully got details from AWS Health event ${eventName} and executed automated action in ${region}. Further details in CloudWatch Logs.`;",
+                                "",
+                                "    // we only need to run this automation once per invocation since the issue ",
+                                "    // of ENI exhaustion is regional and not dependent on the load balancers in the alert",
+                                "    // Event will only trigger for one region so we don't have to loop that",
+                                "    AWS.config.update({region: region});",
+                                "    AWS.config.update({maxRetries: 3});",
+                                "    ec2 = new AWS.EC2(); // creating the object now that we know event region",
+                                "    ",
+                                "    console.log ('Getting the list of available ENI in region %s', region);",
+                                "    var params = {",
+                                "        Filters: [{Name: 'status',Values: ['available']}]",
+                                "    };",
+                                "    ",
+                                "    ec2.describeNetworkInterfaces(params, function(err, data) {",
+                                "        if (err) ",
+                                "        {",
+                                "            console.log( region, err, err.stack); // an error occurred",
+                                "            callback('Error describing ENIs; check CloudWatch Logs for details');",
+                                "        }",
+                                "        else ",
+                                "        {",
+                                "            var numberToProcess = data.NetworkInterfaces.length;",
+                                "            if ((maxEniToProcess > 0) && (data.NetworkInterfaces.length > maxEniToProcess)) numberToProcess = maxEniToProcess;",
+                                "            console.log('Found %s available ENI; processing %s',data.NetworkInterfaces.length,numberToProcess);",
+                                "            // for each interface, remove it",
+                                "            for ( var i=0; i < numberToProcess; i+=1)",
+                                "            {",
+                                "                deleteNetworkInterface(data.NetworkInterfaces[i].NetworkInterfaceId,dryRun); ",
+                                "            }",
+                                "            ",
+                                "            callback(null, awsHealthSuccessMessage); //return success",
+                                "        }",
+                                "    });",
+                                "};",
+                                "",
+                                "//This function removes an ENI",
+                                "function deleteNetworkInterface (networkInterfaceId, dryrun) {",
+                                "    console.log ('Running code to delete ENI %s with Dry Run set to %s', networkInterfaceId, dryrun);",
+                                "    var deleteNetworkInterfaceParams = {",
+                                "        NetworkInterfaceId: networkInterfaceId,",
+                                "        DryRun: dryrun",
+                                "    };",
+                                "    ec2.deleteNetworkInterface(deleteNetworkInterfaceParams, function(err, data) {",
+                                "        if (err) ",
+                                "        {",
+                                "            switch (err.code)",
+                                "            {",
+                                "                case 'DryRunOperation':",
+                                "                    console.log('Dry run attempt complete for %s after %s retries', networkInterfaceId, this.retryCount);",
+                                "                    break;",
+                                "                case 'RequestLimitExceeded':",
+                                "                    console.log('Request limit exceeded while processing %s after %s retries', networkInterfaceId, this.retryCount);",
+                                "                    break;",
+                                "                default:",
+                                "                    console.log(networkInterfaceId, err, err.stack);    ",
+                                "            }",
+                                "        }",
+                                "        else console.log('ENI %s deleted after %s retries', networkInterfaceId, this.retryCount);  // successful response",
+                                "    });",
+                                "}",
+                                ""
+                            ]
+                        ]
+                    }
+                },
+                "Description": "Delete unused ENIs in response to AWS health events",
+                "Handler": "index.handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaIAMRole",
+                        "Arn"
+                    ]
+                },
+                "Runtime": "nodejs4.3",
+                "Timeout": 120,
+                "Environment": {
+                    "Variables": {
+                        "DRY_RUN": {
+                            "Ref": "DryRun"
+                        },
+                        "MAX_ENI": {
+                            "Ref": "MaxENI"
+                        }
+                    }
+                }
+            },
+            "Type": "AWS::Lambda::Function"
+        },
+        "LambdaPermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "LambdaFunction",
+                        "Arn"
+                    ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "CloudWatchEventRule",
+                        "Arn"
+                    ]
+                }
+            }
+        },
+        "CloudWatchEventRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED",
+                "EventPattern": {
+                    "source": [
+                        "aws.health"
+                    ],
+                    "detail-type": [
+                        "AWS Health Event"
+                    ],
+                    "detail": {
+                        "service": [
+                            "ELASTICLOADBALANCING"
+                        ],
+                        "eventTypeCategory": [
+                            "issue"
+                        ],
+                        "eventTypeCode": [
+                            "AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED"
+                        ]
+                    }
+                },
+                "State": "ENABLED",
+                "Targets": [
+                    {
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "LambdaFunction",
+                                "Arn"
+                            ]
+                        },
+                        "Id": "InsufficientENIsFunction"
+                    }
+                ]
+            }
+        }
+    }
+}
