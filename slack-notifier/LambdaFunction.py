@@ -28,7 +28,7 @@ from urllib2 import Request, urlopen, URLError, HTTPError
 # The Slack channel to send a message to stored in the slackChannel environment variable
 SLACK_CHANNEL = "#awshealth"
 # Add the webhook URL from Slack below
-HOOK_URL = "https://hooks.slack.com/services/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"
+HOOK_URL = "https://hooks.slack.com/services/example"
 # Setting up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
