@@ -8,7 +8,7 @@ This tool can be used to send custom text or SMS notifications via Amazon SNS wh
 
 Choose **Launch Stack** to launch the AWS Health SMS Notifier template in the US East (N. Virginia) Region in your account:
 
-[![Launch AWS Health SMS Notifier](../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=SmsNotifier&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/sms-notifier.yml)
+[![Launch AWS Health SMS Notifier](../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=SmsNotifier&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/sms-notifier.yml)
 
 The CloudFormation template requires the following parameters:
 

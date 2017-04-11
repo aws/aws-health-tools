@@ -8,7 +8,7 @@ This sample highlights you can automatically stop a deployment when an Amazon EC
 #### Cloudformation Setup
 Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account:
 
-[![Launch AWS Health Code Pipeline Disable Stage Transition](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthCodePipelineDisableDisableStageTransition&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/AWSHealthCodePipelineDisableDisableStageTransition.json)
+[![Launch AWS Health Code Pipeline Disable Stage Transition](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthCodePipelineDisableDisableStageTransition&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/AWSHealthCodePipelineDisableDisableStageTransition.json)
 
 Please update your region, CodePipeline name and Stage name according to your requirements. 
 

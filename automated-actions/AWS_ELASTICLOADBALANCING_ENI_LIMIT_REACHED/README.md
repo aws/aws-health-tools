@@ -10,7 +10,7 @@ BE CAREFUL: This script, if so configured, will delete unattached ENIs from your
 #### Cloudformation Setup
 Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account:
 
-[![Launch AWS Health Code Elastic Load Balancing ENI Limit Reached](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthElasticLoadBalancingENILimitReached&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/AWSHealthElasticLoadBalancingENILimitReached.json)
+[![Launch AWS Health Code Elastic Load Balancing ENI Limit Reached](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthElasticLoadBalancingENILimitReached&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/AWSHealthElasticLoadBalancingENILimitReached.json)
 
 Setting the Dry Run parameter to true (the default) will keep the script from actually doing deletions. Set it to false to enable deletion.
 Setting the Max ENI parameter (default 100) to a value higher than zero will limit the number of ENIs processed. Setting it to zero will cause the script to process all of the found unattached ENIs. Care should be used here as you can end up with the API calls being throttled by EC2. The script is configured for a limited number of retry attempts and in development testing 100 was found to be a good reliable value for Max ENIs.

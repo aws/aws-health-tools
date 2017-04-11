@@ -9,7 +9,7 @@ This tool can be used to send custom notifications to a SNS topic when an AWS He
 
 Choose **Launch Stack** to launch the AWS Health SNS Topic Publisher template in the US East (N. Virginia) Region in your account:
  
-<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthSNSTopicPublisher&templateURL=https://s3.amazonaws.com/aws-health-tools/Cloudformation-templates/sns-topic-publisher.json" title="Launch Stack"><img src="../images/cloudformation-launch-stack.png" alt="Launch Stack" /></a>
+<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthSNSTopicPublisher&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/sns-topic-publisher.json" title="Launch Stack"><img src="../images/cloudformation-launch-stack.png" alt="Launch Stack" /></a>
 
 Please update the region and the SNS topic name according to your requirements.
 
