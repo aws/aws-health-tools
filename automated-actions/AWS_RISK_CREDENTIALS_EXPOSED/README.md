@@ -20,7 +20,7 @@ This repository contains sample code for all the Lambda functions depicted in th
 The backend infrastructure can be deployed in US East - N. Virginia (us-east-1) using the provided CloudFormation template.
 Click **Launch Stack** to launch the template in the US East - N. Virginia (us-east-1) region in your account:
 
-[![Launch Stack into N. Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ExposedAccessKeysMonitor&templateURL=https://s3.amazonaws.com/aws-health-tools-projects/AWS-RISK-CREDENTIALS-EXPOSED/risk_credentils_exposed.output.yaml)
+[![Launch Stack into N. Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ExposedAccessKeysMonitor&templateURL=https://s3.amazonaws.com/aws-health-tools-projects/AWS-RISK-CREDENTIALS-EXPOSED/risk_credentials_exposed.output.yaml)
 
 (In the last page of the wizard, make sure to:
 
