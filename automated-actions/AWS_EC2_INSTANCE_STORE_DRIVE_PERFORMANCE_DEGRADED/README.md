@@ -7,7 +7,7 @@ EC2 has detected a performance degradation of one or more physical storage drive
 You can automatically stop or terminate EC2 instances that have degraded instance-store performance using Amazon Cloudwatch events and AWS Lambda.
 
 #### CloudFormation
-Choose **Launch Stack** to launch the AWS Health SMS Notifier template in the US East (N. Virginia) Region in your account:
+Choose **Launch Stack** to launch the CloudFormation template in the US East (N. Virginia) Region in your account:
 
 [![Launch AWS Health Automated Action](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=EC2InstancStopuponInstanceStoreDegradation&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/aa-instance-store-degraded.json)
 
