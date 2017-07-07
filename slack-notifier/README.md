@@ -19,7 +19,7 @@ Follow these steps to configure the webhook in Slack:
 ### AWS setup using CloudFormation 
 
 #### CloudFormation
-Choose **Launch Stack** to launch the AWS Health SMS Notifier template in the US East (N. Virginia) Region in your account:
+Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account:
  
 
 <a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=SlackNotifier&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/slack-notifier.json" title="Launch Stack"><img src="../images/cloudformation-launch-stack.png" alt="Launch Stack" /></a>

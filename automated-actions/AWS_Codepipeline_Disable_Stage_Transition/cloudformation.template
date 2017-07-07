@@ -19,7 +19,7 @@
                     "default": "pipelineName"
                 },
                 "stageName": {
-                    "default": "Beta"
+                    "default": "stageName"
                 }
             }
         }
