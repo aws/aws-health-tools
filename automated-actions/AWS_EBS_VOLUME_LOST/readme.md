@@ -15,8 +15,6 @@ Notification on update will be sent to SNS topic assigned.
 #### CloudFormation
 Choose **Launch Stack** to launch the CloudFormation template in the US East (N. Virginia) Region in your account:
 
-[![Launch AWS Health Automated Action](../../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=EC2InstancStopuponInstanceStoreDegradation&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/aws_ebs_vol_lost_cloudformation.yaml`)
-
 The CloudFormation template requires the following parameters:
 
 *SNS topic* - Enter the SNS topic to send notification to.
