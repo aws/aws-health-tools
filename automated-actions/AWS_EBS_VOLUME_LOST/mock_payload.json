@@ -1,30 +1,11 @@
-{
-  "version": "0",
-  "id": "b857809a-cde1-4fe4-b2d0-95d4ed90feb9",
-  "detail-type": "AWS Health Event",
-  "source": "aws.health",
-  "account": "159140854185",
-  "time": "2017-02-07T00:55:52Z",
-  "region": "us-east-1",
-  "resources": [
-    "vol-0352f831a1d5b9b09"
-  ],
-  "detail": {
-    "eventArn": "arn:aws:health:us-east-1::event/event-1486428952619",
-    "service": "EBS",
-    "eventTypeCode": "AWS_EBS_VOLUME_LOST",
-    "eventTypeCategory": "issue",
-    "startTime": "Tue, 7 Feb 2017 00:55:52 GMT",
-    "eventDescription": [
-      {
-        "language": "en_US",
-        "latestDescription": "Your volume experienced a failure due to multiple component failures and we were unable to recover it. Although EBS volumes are designed for reliability, including being backed by multiple physical drives, we are still exposed to durability risks when multiple concurrent component failures occur before we are able to restore redundancy. We publish our durability expectations on the EBS detail page here (http://aws.amazon.com/ebs/details).\n\nFind out what you can do to fix this issue at https://aws.amazon.com/premiumsupport/knowledge-center/ebs-error-status/\n\nWe apologize for the inconvenience this may have caused you. If you have any further questions or comments regarding this matter, please contact us at: http://aws.amazon.com/support."
-      }
+[
+  {
+    "DetailType": "AWS Health Event Mock",
+    "Source": "awshealth.mock",
+    "Time": "2017-02-07T00:55:52Z",
+    "Resources": [
+      "vol-00c0649b4b0599412"
     ],
-    "affectedEntities": [
-      {
-        "entityValue": "vol-0352f831a1d5b9b09"
-      }
-    ]
+    "Detail": "{\"eventArn\":\"arn:aws:health:us-west-2::event/event-1486428952619\",\"service\":\"EBS\",\"eventTypeCode\":\"AWS_EBS_VOLUME_LOST\",\"eventTypeCategory\":\"issue\",\"startTime\":\"Tue, 7 Feb 2017 00:55:52 GMT\",\"eventDescription\":[{\"language\":\"en_US\",\"latestDescription\":\".\"}],\"affectedEntities\":[{\"entityValue\":\"vol-00c0649b4b0599412\"}]}"
   }
-}
+]
