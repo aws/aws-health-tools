@@ -26,7 +26,7 @@ Click **Launch Stack** to launch the template in the US East - N. Virginia (us-e
 
 (In the last page of the wizard, make sure to:
 
-1. Click the checkboxes to give AWS CloudFormation permission to **"create IAM resources"** and **"create IAM resources with custom names"**
+1. Click the checkboxes to give AWS CloudFormation permission to **"I acknowledge that AWS CloudFormation might create IAM resources"** and **"I acknowledge that AWS CloudFormation might create IAM resources with custom names"**
 1. Follow the instructions to **"Create Change Set"** 
 1. Click **"Execute"**
 )
