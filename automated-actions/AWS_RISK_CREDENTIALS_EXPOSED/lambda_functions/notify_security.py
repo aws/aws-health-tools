@@ -60,11 +60,11 @@ def generate_summary_str(summary_items):
 
 
 def publish_msg(subject, message):
-    """ Publishes message to SNS topic
+    """ Publishes message to SNS topic.
 
     Args:
-        subject (string): Subject of message to be published to topic
-        message (string): Content of message to be published to topic
+        subject (string): Subject of message to be published to topic.
+        message (string): Content of message to be published to topic.
 
     Returns:
         (None)
