@@ -10,7 +10,7 @@ def lambda_handler(event, context):
     time_discovered = event['time_discovered']
     username = event['username']
     deleted_key = event['deleted_key']
-    endtime = datetime.datetime.now()
+    endtime = datetime.datetime.now()  # Create start and end time for CloudTrail lookup
     interval = datetime.timedelta(hours=24)
     starttime = endtime - interval
     print('Retrieving events...')
@@ -29,6 +29,18 @@ def lambda_handler(event, context):
 
 
 def get_events(username, starttime, endtime):
+    """ Retrieves detailed list of CloudTrail events that occured between the specified time interval.
+
+    Args:
+        username (string): Username to lookup CloudTrail events for.
+        starttime(datetime): Start of interval to lookup CloudTrail events between.
+        endtime(datetime): End of interval to lookup CloudTrail events between.
+
+    Returns:
+        (dict)
+        Dictionary containing list of CloudTrail events occuring between the start and end time with detailed information for each event.
+
+    """
     try:
         response = cloudtrail.lookup_events(
             LookupAttributes=[
@@ -49,6 +61,16 @@ def get_events(username, starttime, endtime):
 
 
 def get_events_summaries(events):
+    """ Summarizes CloudTrail events list by reducing into counters of occurences for each event, resource name, and resource type in list.
+
+    Args:
+        events (dict): Dictionary containing list of CloudTrail events to be summarized.
+
+    Returns:
+        (list, list, list)
+        Lists containing name:count tuples of most common occurences of events, resource names, and resource types in events list.
+
+    """
     event_name_counter = collections.Counter()
     resource_name_counter = collections.Counter()
     resource_type_counter = collections.Counter()
