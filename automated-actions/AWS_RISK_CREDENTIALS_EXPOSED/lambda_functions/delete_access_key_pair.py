@@ -21,6 +21,13 @@ def lambda_handler(event, context):
 
 
 def get_username_from_key(access_key_id):
+    """ Retrieves username last associated with specified IAM access key ID.
+    Args:
+        access_key_id (string): IAM access key ID to lookup user with.
+    Returns:
+        (string)
+        Username last associated with specified IAM access key ID.
+    """
     try:
         response = iam.get_access_key_last_used(
             AccessKeyId=access_key_id
@@ -33,6 +40,13 @@ def get_username_from_key(access_key_id):
 
 
 def delete_exposed_key_pair(username, access_key_id):
+    """ Deletes IAM access key pair for specified user identified by access key ID.
+    Args:
+        username (string): Username of IAM user to delete key pair for.
+        access_key_id (string): IAM access key ID to identify key pair to delete.
+    Returns:
+        (None)
+    """
     try:
         iam.delete_access_key(
             UserName=username,
