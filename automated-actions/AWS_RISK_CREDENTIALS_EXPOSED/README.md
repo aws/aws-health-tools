@@ -111,7 +111,10 @@ Ensure you have at least one E-mail address [subscribed](http://docs.aws.amazon.
 }
 ```
 
-You can follow the state machine's progress in the Step Functions console. The summary message for `test-user`will be sent to the e-mail address(es) subscribed to the `SecurityNotificationTopic` SNS Topic.
+You can follow the state machine's progress in the Step Functions console. The summary message for `test-user` will be sent to the e-mail address(es) subscribed to the `SecurityNotificationTopic` SNS Topic.
+
+Once you have received the notification e-mail you can return to the IAM console to verify that the key created for `test-user` has been deleted.
+
 * **Note that the summary for this user will likely be empty as it will not have logged any API calls to CloudTrail**
 
 Here is an example of what this message might look like for a user who has made recent API calls to IAM and Step Functions:
