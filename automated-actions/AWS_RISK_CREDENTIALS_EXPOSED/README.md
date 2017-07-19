@@ -35,6 +35,12 @@ Click **Launch Stack** to launch the template in the US East - N. Virginia (us-e
 
 If you would like to deploy the template manually, you need a S3 bucket in the target region, and then package the Lambda functions into that S3 bucket by using the `aws cloudformation package` utility.
 
+Clone the repository
+
+```bash
+git clone https://github.com/aws/aws-health-tools.git
+```
+
 Set environment variables for later commands to use:
 
 ```bash
