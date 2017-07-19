@@ -63,7 +63,7 @@ aws cloudformation deploy --region $REGION --template-file risk_credentials_expo
 ```
 
 ## Testing the Example
-To test the example without exposing an IAM Access Key to a public repository you can simulate the workflow by executing the `ExposedKey` state machine with a set of test json for the event. To do this follow the steps detailed below.
+To test the example without exposing an IAM Access Key to a public repository you can simulate the workflow by executing the `ExposedKey-XXXXXXXXXXXX` state machine with a set of test json for the event. To do this follow the steps detailed below.
 
 Ensure you have at least one E-mail address [subscribed](http://docs.aws.amazon.com/sns/latest/dg/SubscribeTopic.html) to the `SecurityNotificationTopic` created by the template to receive the notification.
 
