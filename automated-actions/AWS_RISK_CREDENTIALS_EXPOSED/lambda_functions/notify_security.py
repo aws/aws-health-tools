@@ -17,10 +17,17 @@ Resource Types:
 
 These are summaries of only the most recent API calls made by this user. Please ensure your account remains secure by further reviewing the API calls made by this user in CloudTrail.'''
 
+ERROR_MSG = '''An error occured when attempting to delete an exposed IAM access key for one of your IAM users. Please login to your account and navigate to the Personal Health Dashboard for more details on this incident and how to resolve it.
+
+Personal Health Dashboard Link: https://phd.aws.amazon.com/phd/home?region=us-east-1#/dashboard/open-issues'''
+
 sns = boto3.client('sns')
 
 
 def lambda_handler(event, context):
+    if event.get('error-info') is not None:
+        publish_msg("Security Alert: Exposed IAM Key - Error Deleting Key", ERROR_MSG)
+        return
     account_id = event['account_id']
     username = event['username']
     deleted_key = event['deleted_key']
@@ -30,7 +37,7 @@ def lambda_handler(event, context):
     resource_types = event['resource_types']
     subject = 'Security Alert: Exposed IAM Key For User {} On Account {}'.format(username, account_id)
     print("Generating message body...")
-    event_summary = generate_summary_str(event_names) 
+    event_summary = generate_summary_str(event_names)
     rname_summary = generate_summary_str(resource_names)
     rtype_summary = generate_summary_str(resource_types)
     message = TEMPLATE.format(time_discovered,
