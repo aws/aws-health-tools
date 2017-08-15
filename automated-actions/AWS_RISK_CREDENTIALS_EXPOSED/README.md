@@ -144,7 +144,7 @@ Resource Types:
 These are summaries of only the most recent API calls made by this user. Please ensure your account remains secure by further reviewing the API calls made by this user in CloudTrail.
 ```
 
-To see how the state machine catchs the failure to delete the IAM access key in the first step use the same JSON from the previous test with the now deleted IAM access key. Because the access key has already been deleted the `DeleteAccessKeyPair` state raises an error and skips to the `NotifySecurity` state due to the catch configuration specified in the task. The `NotifySecurity` state detects the injected error message and notifies your security team that there was an error deleting the key so manual inspection and intervention is required. Here is an example of the error message:
+To see how the state machine catchs the failure to delete the IAM access key in the first step use the same JSON from the previous test with the now deleted IAM access key. Because the access key has already been deleted the `DeleteAccessKeyPair` state raises an error and skips to the `NotifySecurity` state due to the [catch configuration](http://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-errors.html#amazon-states-language-fallback-states) specified in the task. The `NotifySecurity` state detects the injected error message and notifies your security team that there was an error deleting the key so manual inspection and intervention is required. Here is an example of the error message:
 
 ```
 An error occured when attempting to delete an exposed IAM access key for one of your IAM users. Please login to your account and navigate to the Personal Health Dashboard for more details on this incident and how to resolve it.
