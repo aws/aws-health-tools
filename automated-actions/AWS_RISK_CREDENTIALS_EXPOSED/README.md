@@ -16,7 +16,6 @@ This repository contains sample code for all the Lambda functions depicted in th
     * Summarize recent API activity for the user from CloudTrail.
     * Send security notification message containing summary to `SecurityNotificationTopic` SNS Topic. If there was an error in the first step the notify security that error occurred and incident requires manual inspection and intervention.
 
-![walkthrough of workflow](images/VisualWorkflow.png)
 
 ## Running the Example
  
