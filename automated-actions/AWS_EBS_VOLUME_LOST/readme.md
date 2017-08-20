@@ -7,11 +7,10 @@ This tools checks if the failed volume has a snapshot and is part of a root volu
 Tool will restore the instance root volume from latest snapshot automatically if it does.
 Notification on update will be sent to SNS topic assigned.
 
-
-[![Launch Stack into N. Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthCredsExposed&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/aws_ebs_vol_lost_cloudformation.yaml)
+[![Launch Stack into N. Virginia with CloudFormation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSEBSVolLost&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/aws_ebs_vol_lost_cloudformation.yaml)
 
 ### Setup
-1. Launch a cloudformation stack from template : aws_ebs_vol_lost_cloudformation.yaml.
+1. Launch a cloudformation stack from template in region where you would like to monitor the volume : aws_ebs_vol_lost_cloudformation.yaml.
 2. Place in SNS topic to send update to SNSTopic parameter.
 
 
