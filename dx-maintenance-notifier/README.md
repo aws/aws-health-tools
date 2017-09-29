@@ -9,7 +9,7 @@ This tool can be used to send Direct Connect maintenance notifications to SNS to
 
 Choose **Launch Stack** to launch the AWS Direct Connect Maintenance Notifier template in the US West (Oregon) Region in your account. Please note that you need to launch this stack in just one region, you'll still be notified of the Direct Connects in other regions:
  
-<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=AWSHealthSNSTopicPublisher&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/DX_Notifier.json" title="Launch Stack"><img src="../images/cloudformation-launch-stack.png" alt="Launch Stack" /></a>
+<a href="https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=AWSHealthSNSTopicPublisher&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/DX_Notifier.json" title="Launch Stack"><img src="../images/cloudformation-launch-stack.png" alt="Launch Stack" /></a>
 
 Please update the region and the stack name according to your requirements.
 
