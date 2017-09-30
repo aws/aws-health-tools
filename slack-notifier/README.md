@@ -7,7 +7,7 @@ This tool can be used to post alerts to a Slack channel when AWS Health events a
 ### Slack Setup
 Follow these steps to configure the webhook in Slack:
 
-1. Navigate to https://<your-team-domain>.slack.com/apps
+1. Navigate to https://&lt;your-team-domain&gt;.slack.com/apps
 
 2. Search for and select "Incoming WebHooks".
 
