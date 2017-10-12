@@ -23,7 +23,7 @@ This maintenance is scheduled to avoid disrupting redundant connections at the s
 If you encounter any problems with your connection after the end of this maintenance window, please contact us at https://aws.amazon.com/support. For more details, please see https://phd.aws.amazon.com/phd/home?region=us-west-2#/dashboard/open-issues
 
 Region: us-west-2
-Account Id: xxxxxxxxxxxx
+<br>Account Id: xxxxxxxxxxxx
 
 Affected Resources:
 dxcon-xxxxxxxx
