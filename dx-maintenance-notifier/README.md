@@ -14,7 +14,6 @@ Choose **Launch Stack** to launch the AWS Direct Connect Maintenance Notifier te
 Please update the region and the stack name according to your requirements.
 
 Here is a sample of the notification you receive when there is a maintenance schduled on your Direct Connect resource:
-
 ---------------------
 Planned maintenance has been scheduled on an AWS Direct Connect router in Seattle, WA. During this maintenance window, your AWS Direct Connect services associated with this event may become unavailable.
 
@@ -31,8 +30,7 @@ Affected Resources:
 
 Start Time: Thu, 6 Jul 2017 08:30:00 GMT 
 <br>End Time: Thu, 6 Jul 2017 12:30:00 GMT
-
--------------------
+---------------------
 
 #### Manual setup
 
