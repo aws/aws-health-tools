@@ -31,7 +31,8 @@ Affected Resources:
 
 Start Time: Thu, 6 Jul 2017 08:30:00 GMT 
 <br>End Time: Thu, 6 Jul 2017 12:30:00 GMT
-<br>-------------------
+
+-------------------
 
 #### Manual setup
 
