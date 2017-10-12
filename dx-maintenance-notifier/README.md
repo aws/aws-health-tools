@@ -15,7 +15,7 @@ Please update the region and the stack name according to your requirements.
 
 Here is a sample of the notification you receive when there is a maintenance schduled on your Direct Connect resource:
 
-
+---------------------
 Planned maintenance has been scheduled on an AWS Direct Connect router in Seattle, WA. During this maintenance window, your AWS Direct Connect services associated with this event may become unavailable.
 
 This maintenance is scheduled to avoid disrupting redundant connections at the same time.
@@ -26,12 +26,12 @@ Region: us-west-2
 <br>Account Id: xxxxxxxxxxxx
 
 Affected Resources:
-dxcon-xxxxxxxx
-dxvif-xxxxxxxx
+<br>dxcon-xxxxxxxx
+<br>dxvif-xxxxxxxx
 
 Start Time: Thu, 6 Jul 2017 08:30:00 GMT 
-End Time: Thu, 6 Jul 2017 12:30:00 GMT
-
+<br>End Time: Thu, 6 Jul 2017 12:30:00 GMT
+-------------------
 
 #### Manual setup
 
