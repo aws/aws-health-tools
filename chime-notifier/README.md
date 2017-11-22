@@ -13,15 +13,15 @@ Follow these steps to configure the webhook in Chime:
 
 3. Create Webhook
 
-4. Copy the webhook URL and use it in the AWS Setup section that follows.
+4. Copy the webhook URL and use it as the value for the *HookURL* parameter in the Cloudformation template. 
 
+Security Note: WebHooks should be treated like passwords and should not be shared publicily. 
 
-### AWS setup using CloudFormation 
+### AWS setup using CloudFormation
 
 #### CloudFormation
-Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account:
- 
 
+Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account.
  
 The CloudFormation template requires the following parameter:
  
@@ -31,6 +31,7 @@ The CloudFormation template requires the following parameter:
 ### AWS Manual Setup
 
 1. Create an IAM role for the Lambda function to use. Attach the [IAM policy](IAMPolicy) to the role in the IAM console.
+
 Documentation on how to create an IAM policy is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html
 Documentation on how to create an IAM role for Lambda is available here: http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-service.html#roles-creatingrole-service-console
 
@@ -39,13 +40,14 @@ Documentation on how to create an IAM role for Lambda is available here: http://
 More information about Lambda is available here: http://docs.aws.amazon.com/lambda/latest/dg/getting-started.html
 
 3. Create a CloudWatch Events rule to trigger the Lambda function created in step 2 for AWS Health events.
+
 Documentation on how to create an AWS Health CloudWatch Events rule is available here: http://docs.aws.amazon.com/health/latest/ug/cloudwatch-events-health.html
 
 More information about AWS Health is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
 
 Note that this is a just an example of how to set up automation with AWS Health, Amazon CloudWatch Events, and AWS Lambda. We recommend testing the example and tailoring it to your environment before using it in your production environment.
 
+You can also test the Lambda function by invoking it manually and using a [sample AWS Health event data.](http://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#health-event-types)
+
 ### License
 AWS Health Tools are licensed under the Apache 2.0 License.
-
-
