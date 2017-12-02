@@ -58,7 +58,7 @@ Resources:
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
           # main function
-          def handler(event, context):
+          def lambda_handler(event, context):
             message =  str(event['detail']['eventDescription'][0]['latestDescription']  + " https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=" + event['detail']['eventArn'])
             json.dumps(message)
             chime_message = {'Content': message}
