@@ -8,7 +8,7 @@ from urllib2 import Request, urlopen, URLError, HTTPError
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 # main function
-def handler(event, context):
+def lambda_handler(event, context):
     """Post a message to the Chime Room when a new AWS Health event is generated"""
     message =  str(event['detail']['eventDescription'][0]['latestDescription']  + " https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=" + event['detail']['eventArn'])
     json.dumps(message)
