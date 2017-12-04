@@ -24,6 +24,8 @@ Security Note: WebHooks should be treated like passwords and should not be share
 
 Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account.
  
+[![Launch AWS Health Chime Notifier](../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=ChimeNotifier&templateURL=https://s3.amazonaws.com/aws-health-tools-assets/cloudformation-templates/chime-notifier.json)
+
 The CloudFormation template requires the following parameter:
  
 *HookURL* - Incoming web hook url from Slack setup.
