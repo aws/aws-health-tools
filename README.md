@@ -9,6 +9,7 @@ More information about AWS Health and Personal Health Dashboard (PHD) is availab
 
 Setup and usage instructions are present for each tool in its respective directory: <br />
 [AWS Health event SMS notifier](sms-notifier/) <br />
+[AWS Health event Chime notifier](chime-notifier/) <br />
 [AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/) <br />
 [AWS Health event Slack notifier](slack-notifier/) <br />
 [AWS Codepipeline disable stage transition triggered when AWS Health issue event generated](automated-actions/AWS_Codepipeline_Disable_Stage_Transition/) <br />
