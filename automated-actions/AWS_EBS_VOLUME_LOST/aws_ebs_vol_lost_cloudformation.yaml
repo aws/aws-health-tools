@@ -144,7 +144,7 @@ Resources:
                         ec2.describeVolumes(params, checkVolumeAttachment );  
                       }
                     };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFFindLatestSnapshot: 
     Type: "AWS::Lambda::Function"
@@ -185,7 +185,7 @@ Resources:
                       ec2.describeSnapshots(params,findLatestSnapshot );      
                     }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFStopInstance: 
     Type: "AWS::Lambda::Function"
@@ -210,7 +210,7 @@ Resources:
                           ec2.stopInstances(params, stopInstance);
                       }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFCheckInstance: 
     Type: "AWS::Lambda::Function"
@@ -246,7 +246,7 @@ Resources:
                           ec2.describeInstances(params, checkInstanceStop);
                       }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFDetachVolume: 
     Type: "AWS::Lambda::Function"
@@ -271,7 +271,7 @@ Resources:
                           ec2.detachVolume(params, checkVolDetach);
                       }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFCheckVolume: 
     Type: "AWS::Lambda::Function"
@@ -311,7 +311,7 @@ Resources:
                           ec2.describeVolumes(params,checkVolumeAvailable);
                       }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFRestoreSnapshot: 
     Type: "AWS::Lambda::Function"
@@ -361,7 +361,7 @@ Resources:
                           }
                       }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFAttachVolume: 
     Type: "AWS::Lambda::Function"
@@ -388,7 +388,7 @@ Resources:
                           var params = {Device: DeviceVolumeObj[0].Device, InstanceId: InstanceObj[0].InstanceId, VolumeId: RestoredVolumeObj[0].VolumeId};
                           ec2.attachVolume(params, getVolumeAttached);
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFCheckVolumeInuse: 
     Type: "AWS::Lambda::Function"
@@ -427,7 +427,7 @@ Resources:
                           ec2.describeVolumes(params, getVolumeStatus);   
                     }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFStartInstance: 
     Type: "AWS::Lambda::Function"
@@ -455,7 +455,7 @@ Resources:
                           ec2.startInstances(params, getInstance);
                       }
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   LFSNSNotif: 
     Type: "AWS::Lambda::Function"
@@ -501,7 +501,7 @@ Resources:
                           }
                       });
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
   VolLostStateMachine:
     Type: AWS::StepFunctions::StateMachine
