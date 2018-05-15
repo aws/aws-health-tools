@@ -500,7 +500,7 @@ Resources:
                         }
                     });
                   };
-      Runtime: "nodejs4.3"
+      Runtime: "nodejs6.1"
       Timeout: "25"
 
   LambdaUpdateStack:
