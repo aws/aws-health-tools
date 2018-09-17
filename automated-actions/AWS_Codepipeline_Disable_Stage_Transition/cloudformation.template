@@ -135,7 +135,7 @@
                         "Arn"
                     ]
                 },
-                "Runtime": "nodejs6.1",
+                "Runtime": "nodejs6.10",
                 "Timeout": 120,
                 "Environment": {
                     "Variables": {
