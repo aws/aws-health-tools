@@ -154,7 +154,7 @@
             ]
           }
         },
-        "Runtime": "nodejs6.10",
+        "Runtime": "nodejs6.1",
         "Timeout": "25"
       }
     },
@@ -182,9 +182,23 @@
       "Properties": {
         "Description": "EventRule",
         "EventPattern": {
-          "source": [
-            "aws.health"
-          ]
+            "source": [
+                "aws.health"
+                ],
+            "detail-type": [
+                 "AWS Health Abuse Event"
+                ],
+            "detail": {
+                 "service": [
+                    "ABUSE"
+                 ],
+                 "eventTypeCategory": [
+                    "issue"
+                 ],
+                 "eventTypeCode": [
+                    "AWS_ABUSE_DOS_REPORT"
+                 ]
+             }
         },
         "State": "ENABLED",
         "Targets": [
