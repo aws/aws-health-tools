@@ -1,0 +1,11 @@
+[
+  {
+    "DetailType": "AWS Health Event",
+    "Source": "awshealth.mock",
+    "Time": "2018-10-10T12:27:00Z",
+    "Resources": [
+      "vol-03b4bafa0a4a7ef08"
+    ],
+    "Detail": "{\"eventArn\":\"arn:aws:health:ap-southeast-2::event/event-1486428952619\",\"service\":\"EBS\",\"eventTypeCode\":\"AWS_EBS_VOLUME_LOST\",\"eventTypeCategory\":\"issue\",\"startTime\":\"Tue, 7 Feb 2017 00:55:52 GMT\",\"eventDescription\":[{\"language\":\"en_US\",\"latestDescription\":\".\"}],\"affectedEntities\":[{\"entityValue\":\"vol-03b4bafa0a4a7ef08\"}]}"
+  }
+]

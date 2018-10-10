@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  StepFunctionsStack:
+      Type: "String"
+      Description: Please Enter the stack name of the CFNStepFunctions
+
+Resources:
+
+  EventsExecutionRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2008-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - events.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AdministratorAccess
+
+  CloudWatchEventRule: 
+    Type: "AWS::Events::Rule"
+    Properties: 
+      Description: "EventRule"
+      RoleArn: !GetAtt EventsExecutionRole.Arn
+      EventPattern: 
+            source:
+              - aws.health
+            detail-type:
+              - AWS Health Event
+            detail:
+              service:
+                - EBS
+              eventTypeCategory:
+                - issue
+              eventTypeCode:
+                - AWS_EBS_VOLUME_LOST
+      Targets: 
+        -
+          Arn: 
+              Fn::ImportValue:
+                !Sub "${StepFunctionsStack}-StepFunctionARN" 
+          Id: StepFunctionVolumeLost
+          RoleArn: !GetAtt EventsExecutionRole.Arn
+      State: "ENABLED"
+  
+  MockCloudWatchEventRule: 
+    Type: "AWS::Events::Rule"
+    Properties: 
+      Description: "MockEventRule"
+      RoleArn: !GetAtt EventsExecutionRole.Arn
+      EventPattern: 
+            source:
+              - awshealth.mock
+            detail-type:
+              - AWS Health Event
+            detail:
+              service:
+                - EBS
+              eventTypeCategory:
+                - issue
+              eventTypeCode:
+                - AWS_EBS_VOLUME_LOST
+      Targets: 
+        -
+          Arn: 
+              Fn::ImportValue:
+                !Sub "${StepFunctionsStack}-StepFunctionARN" 
+          Id: StepFunctionVolumeLost
+          RoleArn: !GetAtt EventsExecutionRole.Arn
+      State: "ENABLED"

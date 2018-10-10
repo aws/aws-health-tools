@@ -1,0 +1,333 @@
+AWSTemplateFormatVersion : 2010-09-09
+Resources:
+    CognitoIdentityPoolRoleMapping:
+      Type: "AWS::Cognito::IdentityPoolRoleAttachment"
+      Properties:
+        IdentityPoolId: !Ref CognitoIdentityPool
+        Roles:
+          authenticated: !GetAtt CognitoAuthorizedRole.Arn
+          unauthenticated: !GetAtt CognitoUnAuthorizedRole.Arn
+
+    CognitoIdentityPool:
+        Type: AWS::Cognito::IdentityPool
+        Properties:
+          AllowUnauthenticatedIdentities: True
+          CognitoIdentityProviders: 
+            - ClientId: !Ref CognitoUserPoolClient
+              ProviderName: !GetAtt CognitoUserPool.ProviderName
+
+    CognitoAuthorizedRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument: 
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal: 
+                Federated: "cognito-identity.amazonaws.com"
+              Action: 
+                - "sts:AssumeRoleWithWebIdentity"
+              Condition:
+                StringEquals: 
+                  "cognito-identity.amazonaws.com:aud": !Ref CognitoIdentityPool
+                "ForAnyValue:StringLike":
+                  "cognito-identity.amazonaws.com:amr": authenticated
+        Policies:
+          - PolicyName: "CognitoAuthorizedPolicy"
+            PolicyDocument: 
+              Version: "2012-10-17"
+              Statement: 
+                - Effect: "Allow"
+                  Action:
+                    - "mobileanalytics:PutEvents"
+                    - "cognito-sync:*"
+                    - "cognito-identity:*"
+                  Resource: "*"
+                - Effect: "Allow"
+                  Action:
+                    - "lambda:InvokeFunction"
+                  Resource: "*"
+
+    CognitoUnAuthorizedRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument: 
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal: 
+                Federated: "cognito-identity.amazonaws.com"
+              Action: 
+                - "sts:AssumeRoleWithWebIdentity"
+              Condition:
+                StringEquals: 
+                  "cognito-identity.amazonaws.com:aud": !Ref CognitoIdentityPool
+                "ForAnyValue:StringLike":
+                  "cognito-identity.amazonaws.com:amr": unauthenticated
+        Policies:
+          - PolicyName: "CognitoUnauthorizedPolicy"
+            PolicyDocument: 
+              Version: "2012-10-17"
+              Statement: 
+                - Effect: "Allow"
+                  Action:
+                    - "mobileanalytics:PutEvents"
+                    - "cognito-sync:*"
+                  Resource: "*"
+
+    CognitoUserPool:
+      Type: "AWS::Cognito::UserPool"
+      Properties:
+        AutoVerifiedAttributes:
+          - email
+        Schema:
+          - Name: email
+            AttributeDataType: String
+            Mutable: false
+            Required: true
+    
+    CognitoUserPoolClient:
+      Type: "AWS::Cognito::UserPoolClient"
+      Properties:
+        GenerateSecret: false
+        UserPoolId: !Ref CognitoUserPool
+
+    CustomResLambdaExecutionRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2008-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AdministratorAccess
+
+    CustomEnableCognito:
+      Type: Custom::CustomEnableCognito
+      Version: 1.0
+      Properties:
+        ServiceToken: !GetAtt LambdaConfigCognito.Arn
+        UserPoolDomain: !Ref AWS::StackName
+        UserPoolId: !Ref CognitoUserPool
+        UserPoolClientId: !Ref CognitoUserPoolClient
+        KibanaUrl: !Join
+                    - ''
+                    - - 'https://'
+                      - !GetAtt ElasticsearchDomain.DomainEndpoint
+                      - '/_plugin/kibana'
+
+    LambdaConfigCognito:
+      Type: "AWS::Lambda::Function"
+      Properties:
+        Handler: index.lambda_handler
+        Role: !GetAtt CustomResLambdaExecutionRole.Arn
+        Runtime: python3.6
+        Timeout: 120
+        Code:
+          ZipFile: |
+                    import boto3
+                    import cfnresponse
+                    import json
+                    cognitoidp = boto3.client('cognito-idp')
+
+                    def lambda_handler(event, context):
+                        print(json.dumps(event))
+
+                        try:
+
+                            CogUserPoolDomain = event['ResourceProperties']['UserPoolDomain']
+                            CogUserPoolId = event['ResourceProperties']['UserPoolId']
+                            CogUserPoolClientId = event['ResourceProperties']['UserPoolClientId']
+                            KibanaUrl = event['ResourceProperties']['KibanaUrl']
+
+                            if event['RequestType'] == 'Delete':
+                              responseData = {'Delete': 'SUCCESS'}
+                              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+                            if event['RequestType'] == 'Update':
+                              responseData = {'Update': 'SUCCESS'}
+                              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+                            if event['RequestType'] == 'Create':
+
+
+                              y = cognitoidp.create_user_pool_domain(
+                                   Domain=CogUserPoolDomain,
+                                   UserPoolId=CogUserPoolId
+                              )
+
+                              x = cognitoidp.update_user_pool_client(
+                                  UserPoolId=CogUserPoolId,
+                                  ClientId=CogUserPoolClientId,
+                                  AllowedOAuthFlowsUserPoolClient=True,
+                                  AllowedOAuthScopes=[
+                                      "email",
+                                      "openid"
+                                  ],
+                                  AllowedOAuthFlows=[
+                                      "code"
+                                  ],
+                                  SupportedIdentityProviders=[
+                                      "COGNITO"
+                                  ],
+                                  CallbackURLs=[
+                                      KibanaUrl,
+                                  ],
+                                  LogoutURLs=[
+                                      KibanaUrl
+                                  ]
+                              )
+
+                              print(x)
+                              print(y)
+
+                              responseData = {'Create': 'SUCCESS'}
+                              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+                        except Exception as e:
+                            responseData = {'Error': str(e)}
+                            cfnresponse.send(event, context, cfnresponse.FAILED, responseData)
+
+
+    CognitoAccessForAmazonES:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2008-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - es.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AmazonESCognitoAccess
+
+    CustomEnableESAuth:
+      DependsOn: CustomEnableCognito
+      Type: Custom::CustomEnableESAuth
+      Version: 1.0
+      Properties:
+        ServiceToken: !GetAtt LambdaConfigESAuth.Arn
+        UserPoolId: !Ref CognitoUserPool
+        UserCognitoIdentityPool: !Ref CognitoIdentityPool
+        ESDomain: !Ref ElasticsearchDomain
+        ESCognitoAuth: !GetAtt CognitoAccessForAmazonES.Arn
+
+    LambdaConfigESAuth:
+      Type: "AWS::Lambda::Function"
+      Properties:
+        Handler: index.lambda_handler
+        Role: !GetAtt CustomResLambdaExecutionRole.Arn
+        Runtime: python3.6
+        Timeout: 120
+        Code:
+          ZipFile: |
+                    import boto3
+                    import cfnresponse
+                    import json
+                    esclient = boto3.client('es')
+
+                    def lambda_handler(event, context):
+                        print(json.dumps(event))
+
+                        try:
+                            CogUserPoolId = event['ResourceProperties']['UserPoolId']
+                            CogUserCognitoIdentityPool = event['ResourceProperties']['UserCognitoIdentityPool']
+                            ESDomain = event['ResourceProperties']['ESDomain']
+                            ESCognitoAuth = event['ResourceProperties']['ESCognitoAuth']
+
+                            if event['RequestType'] == 'Delete':
+                              responseData = {'Delete': 'SUCCESS'}
+                              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+                            if event['RequestType'] == 'Update':
+                              responseData = {'Update': 'SUCCESS'}
+                              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+                            if event['RequestType'] == 'Create':
+
+
+                              esclient.update_elasticsearch_domain_config(
+                                  DomainName=ESDomain,
+                                  CognitoOptions={
+                                      'Enabled': True,
+                                      'UserPoolId': CogUserPoolId,
+                                      'IdentityPoolId': CogUserCognitoIdentityPool,
+                                      'RoleArn': ESCognitoAuth
+                                  }
+                              )
+
+                              responseData = {'Create': 'SUCCESS'}
+                              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+                        except Exception as e:
+                            responseData = {'Error': str(e)}
+                            cfnresponse.send(event, context, cfnresponse.FAILED, responseData)
+
+
+    RecordEventsLambdaExecutionRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2008-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AdministratorAccess
+
+    ElasticsearchDomain:
+      Type: "AWS::Elasticsearch::Domain"
+      Properties:
+        DomainName: !Sub ${AWS::StackName}-domain
+        ElasticsearchVersion: 6.3
+        ElasticsearchClusterConfig:
+          InstanceCount: 1
+          InstanceType: m4.large.elasticsearch
+        EBSOptions:
+          EBSEnabled: true
+          VolumeType: gp2
+          VolumeSize: 100
+        AccessPolicies:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                AWS: 
+                  - !GetAtt CognitoAuthorizedRole.Arn
+                  - !GetAtt RecordEventsLambdaExecutionRole.Arn
+              Action: 'es:*'
+              Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${AWS::StackName}-domain/*"
+
+Outputs:
+  KibanaURL:
+    Description: ElasticSearch Kibana URL
+    Value: !Join
+            - ''
+            - - 'https://'
+              - !GetAtt ElasticsearchDomain.DomainEndpoint
+              - '/_plugin/kibana'
+  RecordEventsLambdaExecutionRoleArn:
+    Description: RecordEventsLambdaExecutionRole ARN
+    Value: !GetAtt RecordEventsLambdaExecutionRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RecordEventsLambdaExecutionRoleArn"
+  ESDomain:
+    Description: ES Domain 
+    Value: !GetAtt ElasticsearchDomain.DomainEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-DomainEndpoint"
+
+
+
+
+
+
