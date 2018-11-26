@@ -350,10 +350,7 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 4. Click on **Configure details**.
 5. 	Enter **Name**. Example: *aws\_health\_dos\_report\_cwe\_rule\_reinvent*
 6. Click on **Create rule**.
-
-#### Test the Workflow Using Mock Events
-
-1. To test this solution, create a new CloudWatch Events rule that will capture a mock Health event.
+1. Create another CloudWatch Events rule that will capture capture a mock Health event. Name it *mock\_aws\_health\_dos\_report\_cwe\_rule\_reinvent*
 
     ```
     {
@@ -376,6 +373,19 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 	  }
 	}
     ```
+</p></details>
+
+### Step 5 - Test the Solution
+<details>
+<summary>**[ Click here for detailed steps ]**</summary><p>
+
+**Consider below options to test:**
+
+<details>
+<summary>**Option 1:** Test by triggering mock CloudWatch event through **AWS CLI**</summary><p>
+
+**Prerequisite:** You need to have the **AWS CLI** installed. Installation instructions can be found [here](https://docs.aws.amazon.com/cli/latest/userguide/installing.html).
+
 1. Create a file named *mockpayload.json* with below contents. Be sure to replace <mark>\<\<aws\_accoun\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID of the instances you created as part of Step 2.
 
     ```
@@ -383,20 +393,68 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 	    {
 	        "DetailType": "AWS Health Abuse Event",
 	        "Source": "awsmock.health",
-	        "Time": "2018-11-05T07:42:00Z",
+	        "Time": "2018-11-26T10:00:00Z",
 	        "Resources": [
 	            "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>",
 	            "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
 	        ],
-	        "Detail": "{\"eventArn\": \"arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34\",\"service\": \"ABUSE\",\"eventTypeCode\": \"AWS_ABUSE_DOS_REPORT\",\"eventTypeCategory\": \"issue\",\"startTime\": \"Mon, 26 Nov 2018 06:27:57 GMT\",\"eventDescription\": [{\"language\": \"en_US\",\"latestDescription\": \"Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account.\"}],\"affectedEntities\": [{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>\"},{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>\"}]}"
+	        "Detail": "{\"eventArn\": \"arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34\",\"service\": \"ABUSE\",\"eventTypeCode\": \"AWS_ABUSE_DOS_REPORT\",\"eventTypeCategory\": \"issue\",\"startTime\": \"Mon, 26 Nov 2018 10:00:00 GMT\",\"eventDescription\": [{\"language\": \"en_US\",\"latestDescription\": \"Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account.\"}],\"affectedEntities\": [{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>\"},{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>\"}]}"
 		}
 	]
     ```
 1. Run the following command in your terminal.
     
-    Prerequisite: You need to have the AWS CLI installed. Installation instructions can be found [here](https://docs.aws.amazon.com/cli/latest/userguide/installing.html).
-    
     `aws events put-events --entries file://mockpayload.json --region us-east-1`
+    
+</p></details>
+
+<details>
+<summary>**Option 2:** Test using Lambda Test feature</summary><p>
+
+1. Navigate to the Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
+2. Click on the Lambda function created in Step 3.
+3. Click on **Select a test event** drop-down next to the Test button.
+4. Select **Create new test event**.
+5. Enter **Event name**. Example: *testebs*
+6. Paste below input. Be sure to replace <mark>\<\<aws\_accoun\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID of the instances you created as part of Step 2.
+
+    ```
+    {
+	    "detail-type": "AWS Health Abuse Event",
+	    "source": "awsmock.health",
+	    "time": "2018-11-26T10:00:00Z",
+	    "resources": [
+	        "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>",
+	        "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
+	    ],
+	    "detail": {
+	        "eventArn": "arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34",
+	        "service": "ABUSE",
+	        "eventTypeCode": "AWS_ABUSE_DOS_REPORT",
+	        "eventTypeCategory": "issue",
+	        "startTime": "Mon, 26 Nov 2018 10:00:00 GMT",
+	        "eventDescription": [
+	            {
+	                "language": "en_US",
+	                "latestDescription": "Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account."
+	            }
+	        ],
+	        "affectedEntities": [
+	            {
+	                "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>"
+	            },
+	            {
+	                "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
+	            }
+	        ]
+	    }
+	}
+    ```
+
+1. Click on **Create**.
+2. Ensure that *testebs* test event is selected in the drop-down. Click on **Test**.
+
+</p></details>
 
 </p>
 </details>
