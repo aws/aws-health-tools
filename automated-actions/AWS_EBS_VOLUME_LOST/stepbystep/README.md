@@ -366,7 +366,7 @@ In this step, we will create a CloudWatch Events rule to capture EBS lost volume
 9. Click **Index Patterns**.
 10. Enter * as the index pattern.
 11. Click **Next step**.
-12. Select Timestamp from the Time filter drop down.
+12. Select **PhdEventTime** from the Time filter drop down.
 13. Click **Create Index pattern**.
 14. Click **Saved Objects**.
 15. Click **Import**.
@@ -658,5 +658,6 @@ In this step, we will create an Alexa skill that will invoke a Lambda function t
 38. Click on **Test** tab.
 39. Type in `Alexa, ask production about latest events` or talk into your computer's microphone.
 
+    ![Alexa Output](images/Alexa_Skill_Output.png)
 
 </p></details>
