@@ -744,32 +744,3 @@ Have fun!!
 </p></details>
 
 
-
-
-# Troubleshooting
-
-If you are having issue launching step 1, due to access please ensure you have IAM role called **AWSServiceRoleForAmazonElasticsearchService **
-If you don't, please create them by following below :
-
-To create a service-linked role (console)
-
-1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
-2. In the navigation pane of the IAM console, choose Roles. Then choose Create role.
-3. Choose the AWS Service role type, and then choose the service that you want to allow to assume this role.
-4. Choose the use case for your service. If the specified service has only one use case, it is selected for you. Use cases are defined by the service to include the trust policy required by the service. Then choose Next: Permissions.
-5. Choose one or more permissions policies to attach to the role. Depending on the use case that you selected, the service might do any of the following:
-6. Define the permissions used by the role
-7. Allow you to choose from a limited set of permissions
-8. Allow you to choose from any permissions
-9. Allow you to select no policies at this time, create the policies later, and then attach them to the role.
-10. Select the box next to the policy that assigns the permissions that you want the role to have
-
-Choose Next: Review. You cannot attach tags to service-linked roles during creation. For more information about using tags in IAM, see Tagging IAM Identities.
-
-For Role name, the degree of role name customization is defined by the service. If the service defines the role's name, then this option is not editable. In other cases, the service might define a prefix for the role and allow you to type an optional suffix.
-
-If possible, type a role name suffix to add to the default name. This suffix helps you identify the purpose of this role. Role names must be unique within your AWS account. They are not distinguished by case. For example, you cannot create roles named both <service-linked-role-name>_SAMPLE and <service-linked-role-name>_sample. Because various entities might reference the role, you cannot edit the name of the role after it has been created.
-
-(Optional) For Role description, edit the description for the new service-linked role.
-
-Review the role and then choose Create role.
