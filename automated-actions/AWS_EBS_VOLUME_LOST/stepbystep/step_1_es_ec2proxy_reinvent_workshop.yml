@@ -1,14 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   PublicCidr:
-    Type: "String"
+    Type: String
     Description: The public IP address that Kibana will be accessible from.
-    Type": "String"
-    MinLength": "9"
-    MaxLength": "18"
-    Default": "0.0.0.0/0"
-    AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
-    ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    MinLength: 9
+    MaxLength: 18
+    Default: "0.0.0.0/0"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
 
 Mappings:
   AWSInstanceType2Arch:
@@ -359,7 +358,7 @@ Resources:
                 enabled: true
                 ensureRunning: true
     Properties:
-      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch, !Ref InstanceType, Arch]]      
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch, 't2.large', Arch]]      
       InstanceType: t2.large
       SubnetId: !Ref PublicSubnetA
       SecurityGroupIds: 
