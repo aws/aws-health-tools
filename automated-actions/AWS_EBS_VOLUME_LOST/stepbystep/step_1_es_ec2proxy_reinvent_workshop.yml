@@ -1,22 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   PublicCidr:
-    Type: "String"
-    Description: The public IP address that Kibana will be accessible from.
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: Name of KeyPair to be assigned to the Proxy EC2 Instance ( Please Create one if you don't have ).
-  InstanceType:
-    AllowedValues:
-    - t2.nano
-    - t2.micro
-    - t2.small
-    - t2.medium
-    - t2.large
-    ConstraintDescription: must be a valid EC2 instance type.
-    Default: t2.nano
-    Description: Reverse Proxy EC2 instance type
     Type: String
+    Description: The public IP address that Kibana will be accessible from.
+    MinLength: 9
+    MaxLength: 18
+    Default: "0.0.0.0/0"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
 
 Mappings:
   AWSInstanceType2Arch:
@@ -367,9 +358,8 @@ Resources:
                 enabled: true
                 ensureRunning: true
     Properties:
-      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch, !Ref InstanceType, Arch]]      
-      InstanceType: !Ref InstanceType
-      KeyName: !Ref KeyName
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch, 't2.large', Arch]]      
+      InstanceType: t2.large
       SubnetId: !Ref PublicSubnetA
       SecurityGroupIds: 
         - !Ref ProxyServerSecurityGroup
