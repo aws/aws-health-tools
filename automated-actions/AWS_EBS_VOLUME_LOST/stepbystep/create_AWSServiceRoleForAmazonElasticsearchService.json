@@ -1,0 +1,43 @@
+{
+   "AWSTemplateFormatVersion": "2010-09-09",
+   "Resources": {
+      "RootRole": {
+         "Type": "AWS::IAM::Role",
+         "Properties": {
+            "RoleName":"AWSServiceRoleForAmazonElasticsearchService",
+            "AssumeRolePolicyDocument": {
+               "Version" : "2012-10-17",
+               "Statement": [ {
+                  "Effect": "Allow",
+                  "Principal": {
+                     "Service": [ "es.amazonaws.com" ]
+                  },
+                  "Action": [ "sts:AssumeRole" ]
+               } ]
+            },
+            "Path": "/aws-service-role/es.amazonaws.com/",
+            "Policies": [ {
+               "PolicyName": "root",
+               "PolicyDocument": {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                          {
+                              "Action": [
+                                  "ec2:CreateNetworkInterface",
+                                  "ec2:DeleteNetworkInterface",
+                                  "ec2:DescribeNetworkInterfaces",
+                                  "ec2:ModifyNetworkInterfaceAttribute",
+                                  "ec2:DescribeSecurityGroups",
+                                  "ec2:DescribeSubnets",
+                                  "ec2:DescribeVpcs"
+                              ],
+                              "Effect": "Allow",
+                              "Resource": "*"
+                          }
+                      ]
+                  }
+               } ]
+            }
+      }
+   }
+}

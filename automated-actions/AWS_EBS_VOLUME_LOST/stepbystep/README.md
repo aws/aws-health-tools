@@ -1,25 +1,22 @@
 # Amazon EBS Volume Lost Recovery Automation using AWS Health
 
-In an extremely rare scenario when an EBS volume is reported as lost due to multiple underlying hardware failure. You can recover the affected EC2 instance from a recent Amazon Machine Image (AMI) backup. 
+In an extremely rare scenario when an EBS volume is reported as lost due to multiple underlying hardware failure, you can recover the affected EC2 instance from a recent Amazon Machine Image (AMI) backup. In this automated solution we will do the following;
 
-In this automated solution we will check ;
+* Check if the affected EBS volume is attached as a root volume of an EC2 instance. 
+* If so, then check if the EC2 instance has an AMI to recover from.
+* Check if the EC2 instance is part of a CloudFormation Stack.
+* Once all of the above conditions are met, this automation will restore the instance from the latest AMI, and upload the recovery activity record to an Amazon Elasticsearch cluster.
+* A notification will be sent to the SNS topic assigned.
 
-* If the effected volume is attached as a root Volume of an EC2 instance. 
-* If it does then we will check if the attaching EC2 instance has an AMI to recover from.  
-* And if the EC2 instance is part of a CloudFormation Stack.
+In the below steps we will show you how to create visualization dashboard to view the recovery event.
 
-If all of the above conditions are met this solution will then restore the instance from the latest AMI. 
-Then upload the recovery activity record to Amazon Elasticsearch and send a notification to the SNS topic assigned. 
-
-In this steps we will also show you how to create visualization dashboard to view the recovery event.
-
-And we will also connect an Alexa Skill to query Elasticsearch and provide information about the latest event that has occured.
+We will also connect an Alexa Skill to query Elasticsearch and provide information about the latest Health event that has occured.
 
 ![Create Alexa Skills](images/Intro.png)
 
 ## Walkthrough
 
-### Step 1 - Deploying Amazon ElasticSearch as the event recovery record and visualization.
+### Step 1 - Deploying Amazon ElasticSearch as the event recovery record and visualization
 
 In this step, we will deploy an Amazon Elasticsearch instance fronted by Kibana console. This elasticsearch will store all of our recovery and event activities and allow us to visualise the event through Kibana Dashboard.
 
@@ -27,12 +24,14 @@ As part of this step we will also provision an SNS topic that will be used for e
 
 **Note:**
 
-Deploying Amazon Elasticsearch cluster can take **from 10 to 15 minutes.** Therefore we would recommend to execute this step at the very beginning. Steps to allow configuring Amazon Elasticsearch may require significant amount of time, therefore to reduce the noise on deploying and configuring access to elasticsearch, in this solution below we have encapsulated the resource into a single CloudFormation stack.
+Deploying Amazon Elasticsearch cluster can take **from 10 to 15 minutes.** Therefore we recommend that you execute this step as soon as possible because the remaining steps are dependent on this step.
+
+We have encapsulated the Elasticsearch configuration and deployment steps into a CloudFormation template in order to reduce the complexity of manually accomplishing this, saving time during this workshop.
 
 ![Solution](images/Step_1_Sol.png)
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary>
+<summary>[ Click here for detailed steps ]</summary>
 <p>
 
 1. Navigate to the CloudFormation console by clicking on the **Services** drop-down, typing **CloudFormation** in the search bar, and pressing Enter.
@@ -55,32 +54,32 @@ Deploying Amazon Elasticsearch cluster can take **from 10 to 15 minutes.** There
 
 **Diagram Note:**
 
-For showcase purposes, to simplify access to Kibana Console an EC2 instance running as Reverse Proxy will be deployed to this cluster. This is certainly not the recommended method of access especially when you are accessing over the internet. In a production environment we wrould recommend you to deploy Amazon ElasticSearch clusted in a private VPC and only access it via VPN tunnel, Direct Connect, or Implement token based authentication using Cognito
+For demo purposes, an EC2 instance running as Reverse Proxy will be deployed to this cluster to simplify access to the Kibana Console. This is certainly not the recommended method of access especially when you are accessing over the internet. In a production environment, we recommend that you deploy the Amazon Elasticsearch cluster within a private VPC and access only via VPN tunnel, Direct Connect, and/or implement token-based authentication using Cognito.
 
 ![ES Proxy](images/ES_Proxy.png)
 
 </p></details>
 
 
-### Step 2 - Deploy the test subject EC2 instance for automation.
+### Step 2 - Deploy the test subject EC2 instance for automation
 
 In this step, we will deploy a demo app consisting of an EC2 instance with a root EBS volume, which we are going to simulate as lost. This will be a test subject of our automation.
 
-Our automation scenario will levarage CloudFormation built in recovery workflow to orchestrate the replacement of this EC2 instance, therefore we will be deploying this EC2 instance inside CloudFormation.
+Our automation scenario will levarage CloudFormation built in recovery workflow to orchestrate the replacement of this EC2 instance. Therefore, we will be deploying this EC2 instance as part of CloudFormation.
 
 **Note:**
 
-For showcase purpose, this cloudformation stack will automatically deploy a custom activity to automatically create an AMI everytime a new instance is created. This is built purely for demo purposes, and is not the recommended approach when building real automation for your production environment
+For demo purposes, this CloudFormation stack will deploy a custom activity to automatically create an AMI everytime a new instance is created. This is not the recommended approach when building real automation for your production environment as you should ideally decouple your backup process from deployment solutions.
 
 ![EC2 App](images/EC2_App.png)
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary><p>
+<summary>[ Click here for detailed steps ]</summary><p>
 
 1. Navigate to the CloudFormation console by clicking on the **Services** drop-down, typing **CloudFormation** in the search bar, and pressing Enter.
 2. Click on **Create stack**.
 3. Under **Specify template**, choose **Upload a template file**
-5. Upload the file named *step\_3\_app\_reinvent\_workshop.yml*.
+5. Upload the file named *step\_2\_app\_reinvent\_workshop.yml*.
 6. Click **Next**.
 7. Enter a Stack name, for example: `ebs-app-reinvent`
 9. Select one of the two public subnets created in step 1 for the SubnetId parameter. If you aren't sure, navigate to the VPC Management Console, choose Subnets in the left menu and select one of the newly created subnets with the tag "PublicSubnetA" or "PublicSubnetB".
@@ -93,38 +92,38 @@ For showcase purpose, this cloudformation stack will automatically deploy a cust
 
 </p></details>
 
-### Step 3 - Deploying AWS StepFunction state machine and related Lambda Functions to orchestrate recovery process.
+### Step 3 - Deploying AWS StepFunction state machine and related Lambda Functions to orchestrate recovery process
 
-Now that we have the Elasticsearch and the subject EC2 instance ready, lets create the recovery workflow !
+Now that we have the Elasticsearch and the subject EC2 instances ready, lets create the recovery workflow!
 
-In this step, we will create a AWS StepFunctions state  machine comprised of multiple lambda functions to orchestrate below activities ;
+In this step, we will create an AWS Step Functions state  machine comprised of multiple Lambda functions to orchestrate below activities:
 
-* Find information about the EC2 instance impacted by the lost EBS volume 
-* Find out if Amazon Machine Image (AMI) is available for the EC2 instance to recover from
-* Find CloudFormation Stack details of impacted EC2 instance.
+* Find information about the EC2 instance impacted by the lost EBS volume.
+* Find out if Amazon Machine Image (AMI) is available for the EC2 instance to recover from.
+* Find the CloudFormation Stack details of the impacted EC2 instance.
 * Kick off recovery steps by updating the EC2 test subject CloudFormation stack ( Deployed in step 2 ), passing on the new AMI as one of the parameters.
-* CloudFormation will then invoke it's built in workflow to orchestrate the necessary recovery activities such as below :
+* CloudFormation will then invoke its built in workflow to orchestrate the necessary recovery activities such as below :
 	* Launch a new replacement EC2 instance with new AMI.
 	* Detach the Elastic IP from the old EC2 and Attach it to the new one.
 	* Delete the old EC2 instance that is now broken due to the lost EBS volume.
-* The StateMachine will then enter a loop to wait for the CloudFormation Stack to finish the update.
-* Once the update is complete and the EC2 instance is recovered users will be notified through the SNS topic.
-* And all recovery event activities will be published to Elasticsearch cluster for record.
+* The state machine will then enter a loop to wait for the CloudFormation Stack to finish the update.
+* Once the update is complete and the EC2 instance is recovered, users will be notified through the SNS topic.
+* All the recovery event activities will be published to Elasticsearch cluster for record.
 
 **Note:**
 
-Our solutions will be deploying 6 Lambda functions, a AWS StepFunctions state machine to orchestrate the recovery. This process could take some time and quite repetitive. In order to maximize the time, we have created a CloudFormation stack to deploy these resources.
-To gain better experience on how to build AWS StepFunction state machine from scratch, we recommend to go through the **[ OPTIONAL ] - Build a simple AWS StepFunction state machine** in this document.
+Our solutions will be deploying 6 Lambda functions, and an AWS Step Functions state machine to orchestrate the recovery. This process could take some time and is quite repetitive. In order to maximize the time, we have created a CloudFormation stack to deploy these resources.
+To gain better experience on how to build AWS StepFunction state machine from scratch, we recommend that you go through the **[ OPTIONAL ] - Build a simple AWS StepFunction state machine** in this document.
 
 ![Solution](images/Step_2_Sol.png)
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary><p>
+<summary>[ Click here for detailed steps ]</summary><p>
 
 1. Navigate to the CloudFormation console by clicking on the **Services** drop-down, typing **CloudFormation** in the search bar, and pressing Enter.
 2. Click on **Create stack**.
 3. Under **Specify template**, choose **Upload a template file**
-5. Upload the file named *step\_2\_stepfunctions\_reinvent\_workshop.yml*.
+5. Upload the file named *step\_3\_stepfunctions\_reinvent\_workshop.yml*.
 6. Click **Next**.
 7. Enter a **Stack name**. Example: `stepfunction-reinvent`
 8. Enter the Elasticsearch stack name chosen in Step 1 (sub-step 6) for ESStackName, an SNS topic name (e.g. `sns_es_reinvent`) and an email address for SNS notifications.
@@ -139,12 +138,12 @@ To gain better experience on how to build AWS StepFunction state machine from sc
 
 </p></details>
 
-### [ OPTIONAL ] - Build a simple AWS StepFunction state machine
+### [ OPTIONAL ] - Build a simple AWS Step Functions state machine
 
-This step is optional. If you choose to skip this step, it will have no impact on the automation solution we are building. Thses instuctions is created to showcase how to build a simple version of AWS StepFunction State machine. This is a bonus step to understand how Step Functions state machines work.
+This step is optional. If you choose to skip this step, it will have no impact on the automation solution we are building. These instuctions are created to showcase how to build a simple version of an AWS Step Functions state machine. This is a bonus step to understand how Step Functions state machines work.
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary><p>
+<summary>[ Click here for detailed steps ]</summary><p>
 
 Let us build a sample Step Function to evaluate whether the input number is even or odd. Based on the result, a Choice state will add branching logic.
 
@@ -265,15 +264,16 @@ Let us build a sample Step Function to evaluate whether the input number is even
 
 
 
-### Step 4 - Create CloudWatch Events Rule and target to invoke recovery workflow.
+### Step 4 - Create CloudWatch Events Rule and target to invoke recovery workflow
 
-Now that we have created the recovery state machine we are almost ready to simulate our recovery.
+Now that we have created the recovery state machine, we are almost ready to simulate our recovery.
+
 In this step, we will create a CloudWatch Events rule to capture EBS lost volume events and trigger the Step Functions state machine created in Step 3.
 
 ![Solution](images/Step_4_Sol.png)
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary><p>
+<summary>[ Click here for detailed steps ]</summary><p>
 
 1. Navigate to the CloudWatch Events console by clicking on the **Services** drop-down, typing **CloudWatch** in the search bar, and pressing Enter.
 2. In the **Navigation** pane, select **Rules**.
@@ -312,11 +312,11 @@ In this step, we will create a CloudWatch Events rule to capture EBS lost volume
 
 ### Step 5 - Test the Solution
 
-Now that we have created the CloudWatch rule, the automation is ready to automate a real EBS Volume Lost event scenario. However to simulate our automation, we will need below steps to test
+Now that we have created the CloudWatch Events rule, the automation is ready to automate a real EBS Volume Lost event scenario. To simulate our automation, we will need below steps to test.
 
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary><p>
+<summary>[ Click here for detailed steps ]</summary><p>
 
 1. Navigate to the EC2 console by clicking on the **Services** drop-down, typing **EC2** in the search bar, and pressing Enter.
 2. Select the instance created in Step 4, and click on **/dev/xvda** next to Root Device and copy the EBS Volume ID.
@@ -428,7 +428,7 @@ Now that we have created the CloudWatch rule, the automation is ready to automat
 </p></details>
 </p></details>
 
-### Step 6 - Setup Kibana Console Dashboard.
+### Step 6 - Setup Kibana Console Dashboard View
 
 Once you have simulated the recovery, you can now create the Kibana Dashboard to better visualize the event. 
 
@@ -437,7 +437,7 @@ Once you have simulated the recovery, you can now create the Kibana Dashboard to
 ![Kibana](images/Kibana.png)
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary><p>
+<summary>[ Click here for detailed steps ]</summary><p>
     
 7. Navigate to the Kibana dashboard from Step 1.
 8. Click **Management**.
@@ -459,11 +459,9 @@ Once you have simulated the recovery, you can now create the Kibana Dashboard to
 
 ### Step 7 [BONUS] - Install Alexa Skill
 
-**Congratulations !!!** you have successfully created an automated process to recover your EC2 instance from a service health events. Now it is time to bring the game to the next level ! In this step, we will create an Alexa skill that will invoke a Lambda function to query the latest events from the Elasticsearch cluster. The Lambda function will then form a sentence as a response for Alexa to read out to the user.
+**Congratulations!!!** You have successfully created an automated process to recover your EC2 instance from EBS volume lost events. Now it is time to bring the game to the next level! In this step, we will create an Alexa skill that will invoke a Lambda function to query the latest events from the Elasticsearch cluster. The Lambda function will then form a sentence as a response for Alexa to read out to the user.
 
-In this step you will be creating a Lambda function that will be triggered by your Alexa skill, this function will query your Amazon Elasticsearch to find out what was the latest event that has occured in your environment and how long did it take to recover your environment. the lambda function will then parse these information into text and send it back to alexa to read it out back to you.
-
-Have fun !!
+Have fun!!
 
 
 ![Solution](images/Step_Bonus_Sol.png)
@@ -471,7 +469,7 @@ Have fun !!
 ![Alexa Output](images/Alexa_Skill_Output.png)
 
 <details>
-<summary>**[ Click here for detailed steps ]**</summary><p>
+<summary>[ Click here for detailed steps ]</summary><p>
 
 1. From the AWS Management Console, navigate to the **N. Virginia** (us-east-1) region.
 1. Navigate to the Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
@@ -744,3 +742,34 @@ Have fun !!
     ![Alexa Output](images/Alexa_Skill_Output.png)
 
 </p></details>
+
+
+
+
+# Troubleshooting
+
+If you are having issue launching step 1, due to access please ensure you have IAM role called **AWSServiceRoleForAmazonElasticsearchService **
+If you don't, please create them by following below :
+
+To create a service-linked role (console)
+
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+2. In the navigation pane of the IAM console, choose Roles. Then choose Create role.
+3. Choose the AWS Service role type, and then choose the service that you want to allow to assume this role.
+4. Choose the use case for your service. If the specified service has only one use case, it is selected for you. Use cases are defined by the service to include the trust policy required by the service. Then choose Next: Permissions.
+5. Choose one or more permissions policies to attach to the role. Depending on the use case that you selected, the service might do any of the following:
+6. Define the permissions used by the role
+7. Allow you to choose from a limited set of permissions
+8. Allow you to choose from any permissions
+9. Allow you to select no policies at this time, create the policies later, and then attach them to the role.
+10. Select the box next to the policy that assigns the permissions that you want the role to have
+
+Choose Next: Review. You cannot attach tags to service-linked roles during creation. For more information about using tags in IAM, see Tagging IAM Identities.
+
+For Role name, the degree of role name customization is defined by the service. If the service defines the role's name, then this option is not editable. In other cases, the service might define a prefix for the role and allow you to type an optional suffix.
+
+If possible, type a role name suffix to add to the default name. This suffix helps you identify the purpose of this role. Role names must be unique within your AWS account. They are not distinguished by case. For example, you cannot create roles named both <service-linked-role-name>_SAMPLE and <service-linked-role-name>_sample. Because various entities might reference the role, you cannot edit the name of the role after it has been created.
+
+(Optional) For Role description, edit the description for the new service-linked role.
+
+Review the role and then choose Create role.
