@@ -28,7 +28,8 @@ In this step, we will be creating an SNS topic that will be used to send out ema
 
     ![Create SNS topic](images/Step_1_6.png)
 
-1. Click on **Creation subscription**.
+1. Navigate to the Subscriptions tab.
+1. Click on **Create subscription**.
 1. Click on the **Protocol** drop-down and select **SMS**. You can select other protocols, such as HTTPS, and setup webhooks to forward Abuse notifications to systems used within your organization such as Slack, Jira, PagerDuty, etc.
 1. Enter a mobile number where you would like to receive SMSes about AWS Health Abuse events. Example: *1-206-555-0100*
 
@@ -320,7 +321,7 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 1. Navigate to the Amazon CloudWatch console by clicking on the **Services** drop-down, typing **CloudWatch** in the search bar, and pressing Enter.
 2. In the **Navigation** pane, select **Rules**.
 3. Click on **Create rule**.
-4. Under **Event Patter Preview**, click on **Edit**.
+4. Under **Event Pattern Preview**, click on **Edit**.
 5. Paste below rule.
 
     ```
