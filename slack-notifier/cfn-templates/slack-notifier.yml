@@ -41,6 +41,7 @@ Resources:
   SlackNotifierLambdaFn:
     Type: AWS::Lambda::Function
     Properties:
+      Description: 'AWS PHD Slack Notifier'
       Handler: index.handler
       Role:
         Fn::GetAtt:
@@ -48,44 +49,47 @@ Resources:
         - Arn
       Code:
         ZipFile:
-          Fn::Join:
-          - ''
-          - - "#Sample Lambda Function to post notifications to a slack channel when
-              an AWS Health event happens\n"
-            - "from __future__ import print_function \n"
-            - "import boto3 \n"
-            - "import json \n"
-            - "import logging \n"
-            - "import os \n"
-            - "from urllib2 import Request, urlopen, URLError, HTTPError \n"
-            - "# Setting up logging \n"
-            - "logger = logging.getLogger() \n"
-            - "logger.setLevel(logging.INFO) \n"
-            - "# main function \n"
-            - "def handler(event, context): \n"
-            - "  message =  str(event['detail']['eventDescription'][0]['latestDescription']
-              \ + \"\\n\\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=\"
-              + event['detail']['eventArn'] + \"|Click here> for details.\") \n"
-            - "  json.dumps(message) \n"
-            - "  slack_message = { \n"
-            - "    'channel': '"
-            - Ref: SlackChannel
-            - "',\n    'text': message \n"
-            - "} \n"
-            - "  logger.info(str(slack_message)) \n"
-            - '  req = Request("'
-            - Ref: HookURL
-            - "\", json.dumps(slack_message)) \n"
-            - "  try: \n"
-            - "   response = urlopen(req) \n"
-            - "   response.read() \n"
-            - "   logger.info(\"Message posted to: %s\", slack_message['channel'])
-              \n"
-            - "  except HTTPError as e: \n"
-            - "   logger.error(\"Request failed : %d %s\", e.code, e.reason) \n"
-            - "  except URLError as e: \n"
-            - "   logger.error(\"Server connection failed: %s\", e.reason) \n"
-      Runtime: python2.7
+          Fn::Sub: |
+            # Sample Lambda Function to post notifications to a slack channel when an AWS Health event happens
+            from __future__ import print_function
+            import boto3
+            import json
+            import logging
+            import os
+            from urllib.request import Request, urlopen, URLError, HTTPError
+            from urllib.parse import urlencode
+            # Setting up logging
+            logger = logging.getLogger()
+            logger.setLevel(logging.INFO)
+            # main function
+            def handler(event, context):
+                message =  str(
+                    event['detail']['eventDescription'][0]['latestDescription']  +
+                    "\n\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=" +
+                    event['detail']['eventArn'] +
+                    "|Click here> for details."
+                )
+                json.dumps(message)
+                slack_message = {
+                  "channel": "${SlackChannel}",
+                  "text": message,
+                  "username": "AWS - Personal Health Updates"
+                }
+                logger.info(str(slack_message))
+                req = Request(
+                  "${HookURL}",
+                  data=json.dumps(slack_message).encode("utf-8"),
+                  headers={"content-type": "application/json"}
+                )
+                try:
+                  response = urlopen(req)
+                  response.read()
+                  logger.info("Message posted to: %s", slack_message['channel'])
+                except HTTPError as e:
+                   logger.error("Request failed : %d %s", e.code, e.reason)
+                except URLError as e:
+                   logger.error("Server connection failed: %s", e.reason)
+      Runtime: python3.7
       Timeout: '60'
   LambdaInvokePermission:
     Type: AWS::Lambda::Permission
