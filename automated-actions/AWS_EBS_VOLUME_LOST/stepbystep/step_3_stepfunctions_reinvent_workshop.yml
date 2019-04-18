@@ -1,0 +1,561 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  EmailSubscription:
+      Type: String
+      Description: "Please enter an email address to receive notification of the instance recovery workflow."
+  SNSTopicName:
+      Type: "String"
+      Description: Please enter an SNS Topic Name to create.
+  ESStackName:
+      Type: "String"
+      Description: Enter the name of ElasticSearch Stack.
+
+Resources:
+#############
+# IAM Roles #
+#############
+
+  # SNS Topic for notification
+  MySNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref SNSTopicName
+      DisplayName: !Ref SNSTopicName
+      Subscription:
+      - Endpoint: !Ref EmailSubscription
+        Protocol: email
+
+  # IAM Execution Role for Lambda Functions
+  LambdaExecutionRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2008-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AdministratorAccess
+
+  # IAM Execution Role for Lambda Functions
+  StepFunctionExecutionRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2008-10-17
+          Statement:
+            -
+              Effect: Allow
+              Principal:
+                Service:
+                  - states.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AdministratorAccess
+
+####################
+# Lambda Functions #
+####################
+
+  # Lambda Function to gather information about Volume
+  LambdaGatherVolumeDetails:
+      Type: "AWS::Lambda::Function"
+      Properties:
+        Handler: index.lambda_handler
+        Role: !GetAtt LambdaExecutionRole.Arn
+        Runtime: python3.6
+        Timeout: 100
+        Code:
+          ZipFile: |
+              import boto3
+              import json
+              import datetime
+              import dateutil.parser
+
+              ec2client = boto3.client('ec2')
+
+              def getDateTimeFromISO8601String(s):
+                  d = dateutil.parser.parse(s)
+                  return d
+
+              date_handler = lambda obj: obj.isoformat()
+
+              def findvolumedetails(event):
+                  eventid = event["id"]
+                  volid = event["resources"][0]
+                  time = event['time']
+                  eventtime = time
+                  result = {}
+                  ec2client = boto3.client('ec2')
+                  resp = ec2client.describe_volumes( VolumeIds=[ volid ] )
+                  resp_volume =  resp['Volumes'][0]
+                  a = resp_volume['Attachments']
+                  if not a:
+                      resp_volume['Attachment'] = {}
+                      resp_volume['Attachment']['Device'] = "none" 
+                      resp_volume['Attachment']['AttachTime'] = "none" 
+                      resp_volume['Attachment']['InstanceId'] = "none" 
+                      resp_volume['Attachment']['State'] = "none" 
+                      resp_volume['Attachment']['DeleteOnTermination'] = "none" 
+                  else:
+                      resp_volumes_attachment = resp_volume['Attachments'][0]
+                      resp_volume['Attachment'] = resp_volumes_attachment
+                  resp_volume.pop('Attachments', None)
+                  resp_volume['PhdEventTime'] = eventtime
+                  resp_volume['PhdEventId'] = eventid
+                  resp_volume['Detail'] = event['detail'];
+                  result = json.dumps(resp_volume, default = date_handler)
+                  return (json.loads(result))
+
+              def findcfnstack(event):
+                  instanceid = event['Attachment']['InstanceId']
+                  response = ec2client.describe_tags(Filters=[{'Name': 'resource-id','Values': [instanceid]},{'Name': 'key','Values': ["aws:cloudformation:stack-name"]}])
+                  tags = response['Tags']
+                  stackid = 'none'
+                  for i in tags:
+                      if 'Value' in i:
+                          stackid = i['Value']
+                  event['ResourceStack'] = {}
+                  event['ResourceStack']['StackName']=stackid
+                  return (event)
+
+              def findsnapshot(event):
+                  listdates = []
+                  lastestsnapshot = ""
+                  event['RestoredResources'] = {}
+                  volid = event['VolumeId']
+                  ec2response = ec2client.describe_snapshots( Filters=[{'Name': 'volume-id','Values': [ volid ]},{'Name': 'status','Values': [ 'completed' ]}])
+                  if not ec2response['Snapshots']:
+                      print ("no snapshot")
+                      event['RestoredResources']['RestoreSnapshotId']='none'
+                  else:
+                      for i in ec2response['Snapshots']:
+                          listdates.append(i['StartTime'])
+                      maxtime = max(listdates)
+                      for x in ec2response['Snapshots']:
+                          if x['StartTime'] == maxtime:
+                              lastestsnapshot = x
+                      print (lastestsnapshot)
+                      event['RestoredResources']['RestoreSnapshotId']=lastestsnapshot['SnapshotId']
+                  return event
+
+              def findami(event):
+                  SnapId = event['RestoredResources']['RestoreSnapshotId']
+                  ec2response = ec2client.describe_images( Filters=[{'Name': 'block-device-mapping.snapshot-id','Values': [ SnapId ]},{'Name': 'state','Values': [ 'available' ]}])
+                  if not ec2response['Images']:
+                      print ("no image")
+                      event['RestoredResources']['RestoreImageId']='none'
+                  else:
+                      for i in ec2response['Images']:
+                         ami=i['ImageId']
+                      event['RestoredResources']['RestoreImageId']=ami
+                  return event
+                  
+              def lambda_handler(event, context):
+                  voldetails = findvolumedetails(event)
+                  result = event
+                  if (voldetails['Attachment']['Device'] == "none"):
+                      result = voldetails
+                      result['GenStatus'] = "fail"
+                      return result
+                  
+                  cfnstackdetails = findcfnstack(voldetails)
+                  if (cfnstackdetails['ResourceStack']['StackName'] == "none"):
+                      result = cfnstackdetails
+                      result['GenStatus'] = "fail"
+                      return result
+
+                  snapshotdetails = findsnapshot(cfnstackdetails)
+                  if (snapshotdetails['RestoredResources']['RestoreSnapshotId'] == "none"):
+                      result = snapshotdetails
+                      result['GenStatus'] = "fail"
+                      return result
+                      
+                  final = findami(snapshotdetails)
+                  if (final['RestoredResources']['RestoreSnapshotId'] == "none"):
+                      result = final
+                      result['GenStatus'] = "fail"
+                      return result
+                  
+                  result = final
+                  result['GenStatus'] = "success"
+                  return result
+                  
+  # Lambda Function to check application stack status.
+  LambdaCheckStack:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.6
+      Timeout: 25
+      VpcConfig:
+        SubnetIds: 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetA" 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetB" 
+        SecurityGroupIds:
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-ESLambdaSecurityGroup" 
+      Code:
+        ZipFile: |
+          import boto3
+          cfnclient = boto3.client('cloudformation')
+          def lambda_handler(event, context):
+              stackname = event['ResourceStack']['StackName']
+              cfnresponse = cfnclient.describe_stacks(StackName= stackname)
+              for i in cfnresponse['Stacks']:
+                  event['ResourceStack']['StackStatus'] = i['StackStatus']
+              return event
+
+  # Lambda Function to gather events information
+  LambdaGatherEvents:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.6
+      Timeout: 25
+      VpcConfig:
+        SubnetIds: 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetA" 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetB" 
+        SecurityGroupIds:
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-ESLambdaSecurityGroup" 
+      Code:
+        ZipFile: |
+          import boto3,json,datetime
+          
+          def datetime_handler(x):
+              if isinstance(x, datetime.datetime):
+                  return x.isoformat()
+              raise TypeError("Unknown type")
+          
+          def lambda_handler(event, context):
+              stackname = event['ResourceStack']['StackName']
+              client = boto3.client('cloudformation')
+              response = client.describe_stack_events(StackName=stackname)
+              endsearch = False
+              stackevents = []
+              for i in response['StackEvents']:
+                  HasResourceStatusReason = i.get('ResourceStatusReason')
+                  if HasResourceStatusReason != None:
+                      if i['ResourceStatusReason'] == "User Initiated":
+                          stackevents.append(i)
+                          break
+                      else:
+                          stackevents.append(i)
+                  else:
+                      stackevents.append(i)
+              json_container = json.dumps(stackevents,default=datetime_handler)
+              print(json_container)
+              event['ResourceStack']['StackEvents'] = json.loads(json_container)
+          
+              
+              stackresponse = client.describe_stack_resource(StackName=stackname, LogicalResourceId='EC2Instance')
+              restoredinstance = stackresponse['StackResourceDetail']['PhysicalResourceId']
+              event['RestoredResources']['ReplacementInstance'] = restoredinstance
+              
+              
+              ec2client = boto3.client('ec2')
+              volresponse = ec2client.describe_volumes(Filters=[{'Name': 'attachment.instance-id','Values': [restoredinstance]}])
+              
+              vol_json_container = json.dumps(volresponse['Volumes'],default=datetime_handler)
+              event['RestoredResources']['RestoredVolumes'] = json.loads(vol_json_container)
+              
+              return event
+
+  # Lambda to check SNS notification
+  LambdaSNSNotification: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Environment: 
+          Variables: 
+            SNSARN: 
+              Fn::Join:
+                - "" 
+                - - "arn:aws:sns:"
+                  - !Ref "AWS::Region"
+                  - ":"
+                  - !Ref "AWS::AccountId"
+                  - ":"
+                  - !Ref "SNSTopicName"
+      Handler: "index.handler"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig:
+        SubnetIds: 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetA" 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetB" 
+        SecurityGroupIds:
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-ESLambdaSecurityGroup" 
+      Code: 
+        ZipFile: |
+            var AWS = require('aws-sdk');
+            var sns = new AWS.SNS();
+            const snsTopic =process.env.SNSARN; //use ARN
+            exports.handler = (event, context, callback) => {
+              
+              if (event['Detail']['eventDescription'][0]['latestDescription']) {
+                healthMessage = "AWS Health reported volume " + event.VolumeId + " has experienced AWS_EBS_VOLUME_LOST. The detailed message received was : " + event['Detail']['eventDescription'][0]['latestDescription']; 
+              } else {
+                healthMessage = "AWS Health reported volume " + event.VolumeId + " has experienced AWS_EBS_VOLUME_LOST.  No detailed message was received. Check Kibana for more details.";
+              }
+              eventName = "AWS_EBS_VOLUME_LOST"
+              var snsPublishParams = {
+                  Message: healthMessage, 
+                  Subject: eventName,
+                  TopicArn: snsTopic
+              };
+              sns.publish(snsPublishParams, function(err, data) {
+              if (err) {
+                  const snsPublishErrorMessage = `Error publishing AWS Health event to SNS`;
+                  console.log(snsPublishErrorMessage, err);
+                  callback(snsPublishErrorMessage);
+                  } 
+              else {
+                  const snsPublishSuccessMessage = `Successfully got details from AWS Health event, ${!eventName} and published to SNS topic.`;
+                  console.log(snsPublishSuccessMessage, data);
+                  callback(null, event); //passthrough event
+                  }
+              });
+            };
+      Runtime: "nodejs6.10"
+      Timeout: "25"
+
+  # Lambda Function to update Stack
+  LambdaUpdateStack:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.6
+      Timeout: 25
+      VpcConfig:
+        SubnetIds: 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetA" 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetB" 
+        SecurityGroupIds:
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-ESLambdaSecurityGroup" 
+      Code:
+        ZipFile: |
+          import boto3
+          cfnclient = boto3.client('cloudformation')
+          def lambda_handler(event, context):
+              stackname = event['ResourceStack']['StackName']
+              amiid = event['RestoredResources']['RestoreImageId']
+              cfnresponse = cfnclient.update_stack(
+                  StackName= stackname,
+                  Parameters=[
+                      { 'ParameterKey': 'RestoreImageId', 'ParameterValue': amiid, 'UsePreviousValue': False },
+                      { 'ParameterKey': 'SubnetId', 'UsePreviousValue': True },
+                      { 'ParameterKey': 'KeyName', 'UsePreviousValue': True },
+                      { 'ParameterKey': 'VpcId', 'UsePreviousValue': True }
+                  ],
+                  UsePreviousTemplate=True,
+                  Capabilities=[
+                          'CAPABILITY_NAMED_IAM',
+                      ],
+                  )
+              return event
+
+  # Lambda Function to Load to ElasticSearch
+  LambdaElasticsearchLoad:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          ESDOMAIN: 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-DomainEndpoint" 
+      Runtime: python3.6
+      Timeout: 120
+      VpcConfig:
+        SubnetIds: 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetA" 
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-PrivateSubnetB" 
+        SecurityGroupIds:
+          - 
+            Fn::ImportValue:
+              !Sub "${ESStackName}-ESLambdaSecurityGroup" 
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import urllib.request
+          from time import sleep
+          es = str("http://" + os.environ['ESDOMAIN'])
+          def lambda_handler(event, context):
+              sleep(1)
+              try:
+                  pTime = event['PhdEventTime']
+                  pId = event['PhdEventId']
+              except:
+                  pTime = 'ERROR_PARSING_JSON'
+                  pId = 'ERROR_PARSING_JSON'
+              iterateJson(event, pTime, pId)
+              try:
+                  ToEs(event, 'phd-full-events')
+              except:
+                  event['ESUpload'] = 'Failed'
+              return event
+          def iterateJson(jsn, time, id):
+              pld = {}
+              for i in jsn.items():
+                  if type(i[1]) is str:
+                      pld[i[0]] = i[1]
+                  elif type(i[1]) is dict:
+                      iterateJson(jsn[i[0]], time, id)
+                  elif type(i[1]) is list:
+                      for k in jsn[i[0]]:
+                          iterateJson(k, time, id)
+              pld['PhdEventTime'] = time
+              pld['PhdEventId'] = id
+              pld['ESUpload'] = 'Success'
+              ToEs(pld, 'phd-events')
+          def ToEs(doc, index):
+              payload = json.dumps(doc).encode('utf8')
+              rq = urllib.request.Request(es + '/' + index + '/doc', payload, {'Content-Type': 'application/json'}, method='POST')
+              try:
+                  f = urllib.request.urlopen(rq)
+                  rsp = f.read()
+                  f.close()
+              except urllib.error.HTTPError:
+                  rsp = 'Error uploading ' + str(doc)
+              print(rsp)
+
+####################
+# Step Functions #
+####################
+
+  StepFunctionVolumeLost:
+      Type: "AWS::StepFunctions::StateMachine"
+      Properties:
+        RoleArn: !GetAtt StepFunctionExecutionRole.Arn
+        DefinitionString: 
+          !Sub
+            - |
+                {
+                  "StartAt": "GatherVolumeDetails",
+                  "States": {
+                    "GatherVolumeDetails": {
+                      "Type": "Task",
+                      "Resource": "${LambdaGatherVolumeDetails}",
+                      "Next": "CheckVolumeInfo"
+                    },
+                    "CheckVolumeInfo": {
+                      "Type": "Choice",
+                      "Choices": [{
+                          "Variable": "$.GenStatus",
+                          "StringEquals": "fail",
+                          "Next": "SendFailNotification"
+                        },
+                        {
+                          "Variable": "$.GenStatus",
+                          "StringEquals": "success",
+                          "Next": "RestoreInstanceImage"
+                        }
+                      ],
+                      "Default": "RestoreInstanceImage"
+                    },
+                    "SendFailNotification": {
+                      "Type": "Task",
+                      "Resource": "${LambdaSNSNotification}",
+                      "Next": "UploadToElasticsearch_Fail"
+                    },
+                    "UploadToElasticsearch_Fail": {
+                      "Type": "Task",
+                      "Resource": "${LambdaElasticsearchLoad}",
+                      "Next": "Fail"
+                    },
+                    "Fail": {
+                      "Type": "Fail"
+                    },
+                    "RestoreInstanceImage": {
+                      "Type": "Task",
+                      "Resource": "${LambdaUpdateStack}",
+                      "Next": "Wait"
+                    },
+                    "Wait": {
+                      "Type": "Wait",
+                      "Seconds": 20,
+                      "Next": "CheckRestoreStatus"
+                    },
+                    "CheckRestoreStatus": {
+                      "Type": "Task",
+                      "Resource": "${LambdaCheckStack}",
+                      "Next": "RestoreComplete?"
+                    },
+                    "RestoreComplete?": {
+                      "Type": "Choice",
+                      "Choices": [{
+                          "Variable": "$.ResourceStack.StackStatus",
+                          "StringEquals": "FAILED",
+                          "Next": "SendFailNotification"
+                        },
+                        {
+                          "Variable": "$.ResourceStack.StackStatus",
+                          "StringEquals": "UPDATE_COMPLETE",
+                          "Next": "SendSuccessNotification"
+                        }
+                      ],
+                      "Default": "Wait"
+                    },
+                    "SendSuccessNotification": {
+                      "Type": "Task",
+                      "Resource": "${LambdaSNSNotification}",
+                      "Next": "GatherEvents"
+                    },
+                    "GatherEvents": {
+                      "Type": "Task",
+                      "Resource": "${LambdaGatherEvents}",
+                      "Next": "UploadToElasticsearch_Success"
+                    },
+
+                    "UploadToElasticsearch_Success": {
+                      "Type": "Task",
+                      "Resource": "${LambdaElasticsearchLoad}",
+                      "End": true
+                    }
+                  }
+                }
+            - { LambdaSNSNotification: !GetAtt LambdaSNSNotification.Arn, LambdaElasticsearchLoad: !GetAtt LambdaElasticsearchLoad.Arn, LambdaGatherEvents: !GetAtt LambdaGatherEvents.Arn, LambdaCheckStack: !GetAtt LambdaCheckStack.Arn, LambdaUpdateStack: !GetAtt LambdaUpdateStack.Arn,  LambdaGatherVolumeDetails: !GetAtt LambdaGatherVolumeDetails.Arn }
+Outputs:
+  StepFunctionARN:
+    Description: StepFunctions ARN
+    Value: !Ref StepFunctionVolumeLost
+    Export:
+      Name: !Sub "${AWS::StackName}-StepFunctionARN"
