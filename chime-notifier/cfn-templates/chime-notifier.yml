@@ -1,0 +1,104 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  HookURL:
+    Type: String
+    Description: 'Please enter the web hook url from Chime:'
+    NoEcho: true
+Resources:
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  LambdaRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: Stmt12349896368829
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Effect: Allow
+          Resource: arn:aws:logs:*:*:*
+      Roles:
+      - Ref: LambdaFunctionRole
+  ChimeNotifierLambdaFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - LambdaFunctionRole
+        - Arn
+      Environment:
+        Variables:
+          CHIMEWEBHOOK : !Ref HookURL
+      Code:
+        ZipFile: !Sub |
+          #Sample Lambda Function to post notifications to a Chime room when an AWS Health event happens
+          from __future__ import print_function
+          import json
+          import logging
+          import os
+          from urllib2 import Request, urlopen, URLError, HTTPError
+          # Setting up logging
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          # main function
+          def lambda_handler(event, context):
+            message =  str(event['detail']['eventDescription'][0]['latestDescription']  + " https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=" + event['detail']['eventArn'])
+            json.dumps(message)
+            chime_message = {'Content': message}
+            logger.info(str(chime_message))
+            webhookurl = str(os.environ['CHIMEWEBHOOK'])
+            req = Request(webhookurl, json.dumps(chime_message))
+            try:
+              response = urlopen(req)
+              response.read()
+              logger.info("Message posted: %s", chime_message['Content'])
+            except HTTPError as e:
+              logger.error("Request failed : %d %s", e.code, e.reason)
+            except URLError as e:
+              logger.error("Server connection failed: %s", e.reason)   
+      Runtime: python2.7
+      Timeout: '60'
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+        - ChimeNotifierLambdaFn
+        - Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - CloudWatchEventRule
+        - Arn
+  CloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: EventRule
+      EventPattern:
+        source:
+        - aws.health
+      State: ENABLED
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - ChimeNotifierLambdaFn
+          - Arn
+        Id: ChimeNotifierLambdaFn

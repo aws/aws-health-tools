@@ -102,7 +102,7 @@ Resources:
                 callback(null, snsPublishSuccessMessage); //return success
               });
           };
-      Runtime: nodejs4.3
+      Runtime: nodejs6.10
 
   AwsHealthEventRule:
     Type: AWS::Events::Rule

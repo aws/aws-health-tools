@@ -8,13 +8,21 @@ AWS Health provides ongoing visibility into the state of your AWS resources, ser
 More information about AWS Health and Personal Health Dashboard (PHD) is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
 
 Setup and usage instructions are present for each tool in its respective directory: <br />
+
+#### Custom Notifications:
 [AWS Health event SMS notifier](sms-notifier/) <br />
+[AWS Health event Chime notifier](chime-notifier/) <br />
 [AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/) <br />
 [AWS Health event Slack notifier](slack-notifier/) <br />
+[AWS Health event Direct Connect maintenance notifier](dx-maintenance-notifier/) <br />
+[AWS Health Abuse event DOS report notifier](dos-report-notifier/) <br />
+
+#### Automated Actions:
 [AWS Codepipeline disable stage transition triggered when AWS Health issue event generated](automated-actions/AWS_Codepipeline_Disable_Stage_Transition/) <br />
 [AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED triggers automated EC2 Instance stop or terminate](automated-actions/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED/) <br />
 [AWS Health AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED triggers freeing up of unused ENIs](automated-actions/AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED/) <br />
 [AWS Health AWS_RISK_CREDENTIALS_EXPOSED remediation](automated-actions/AWS_RISK_CREDENTIALS_EXPOSED/) <br />
+[AWS Health AWS_EBS_VOLUME_LOST Remediation](automated-actions/AWS_EBS_VOLUME_LOST/) <br />
 
 ![Architecture](images/AWSHealthToolsArchitecture.jpg)
 

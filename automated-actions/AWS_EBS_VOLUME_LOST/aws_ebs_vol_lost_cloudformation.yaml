@@ -1,0 +1,729 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+    SNSTopicName:
+        Type: String
+        Description: Please enter your SNS Topic Name. (SNS Topic must exist in the same region where this stack is launched).
+Resources:
+  CloudWatchEventRule: 
+    Type: "AWS::Events::Rule"
+    Properties: 
+      Description: "EventRule"
+      RoleArn: !GetAtt ExecutionRole.Arn
+      EventPattern: 
+            source:
+              - aws.health
+            detail-type:
+              - AWS Health Event
+            detail:
+              service:
+                - EBS
+              eventTypeCategory:
+                - issue
+              eventTypeCode:
+                - AWS_EBS_VOLUME_LOST
+      Targets: 
+        -
+          Arn: !Ref VolLostStateMachine
+          Id: VolLostStateMachine
+          RoleArn: !GetAtt ExecutionRole.Arn
+      State: "ENABLED"
+
+  ExecutionRole: 
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "events.amazonaws.com"
+                - "lambda.amazonaws.com"
+                - Fn::Join:
+                    - "" 
+                    - - "states."
+                      - !Ref "AWS::Region"
+                      - ".amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: "Policies"
+          PolicyDocument: 
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "arn:aws:logs:*:*:*"
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "ec2:AttachVolume"
+                  - "ec2:CreateVolume"
+                  - "ec2:DescribeSnapshots"
+                  - "ec2:DescribeVolumes"
+                  - "ec2:DetachVolume"
+                  - "ec2:DescribeInstances"
+                  - "ec2:StartInstances"
+                  - "ec2:StopInstances"
+                Resource: "*"
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "lambda:InvokeFunction"
+                Resource:
+                  Fn::Join:
+                    - "" 
+                    - - "arn:aws:lambda:"
+                      - !Ref "AWS::Region"
+                      - ":"
+                      - !Ref "AWS::AccountId"
+                      - ":*"
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "states:StartExecution"
+                Resource: 
+                  Fn::Join:
+                    - "" 
+                    - - "arn:aws:states:"
+                      - !Ref "AWS::Region"
+                      - ":"
+                      - !Ref "AWS::AccountId"
+                      - ":*"
+              - 
+                Effect: "Allow"
+                Action: 
+                  - "sns:Publish"
+                Resource: 
+                  Fn::Join:
+                    - "" 
+                    - - "arn:aws:sns:"
+                      - !Ref "AWS::Region"
+                      - ":"
+                      - !Ref "AWS::AccountId"
+                      - ":*"
+  LFFindVolumeDetails: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                    exports.handler = (event, context, callback) => {
+                    var AWS = require('aws-sdk');
+                    var ec2 = new AWS.EC2();
+                    var volumes = event.resources;  
+                    function checkVolumeAttachment (err, data) {   
+                        if (err) console.log(err, err.stack); 
+                        else {
+                          var result={};
+                          var key;
+                          if ( data.Volumes[0].Attachments.length > 0 ){
+                              console.log(data.Volumes[0].Attachments[0]);
+                              for( key in data.Volumes[0].Attachments) result=data.Volumes[0].Attachments[key];
+                              delete data.Volumes[0]["Attachments"];
+                              for( key in data.Volumes[0]) result[key]=data.Volumes[0][key];
+                          }
+                          else{
+                              console.log("Volume Not Attached");
+                              for( key in data.Volumes[0]) result[key]=data.Volumes[0][key];
+                              result["Device"]="None"
+                          }
+                          callback(null,result);
+                        } 
+                        }
+                    for (var i in volumes) {
+                        volume = volumes[i];
+                        console.log("Describing volume ",volume);
+                        var params = { Filters: [{ Name: "volume-id", Values: [volume] }] };
+                        ec2.describeVolumes(params, checkVolumeAttachment );  
+                      }
+                    };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFFindLatestSnapshot: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                    var AWS = require('aws-sdk');
+                    var ec2 = new AWS.EC2();
+                    var volumes = event.resources;  
+                    function findLatestSnapshot(err, data) {   
+                          console.log(data);
+                          if (err) console.log(err, err.stack); 
+                          else {
+                            var dates=[];
+                            var snapshots=data.Snapshots;
+                            snapshots.forEach(function(value){dates.push(new Date(value.StartTime));});
+                            var maxDate = new Date(Math.max.apply(null,dates));
+                                if ( snapshots.length > 0 ){
+                                    snapshotobj = snapshots.filter(function(o){return o.StartTime.getTime() === maxDate.getTime();});
+                                    console.log("Found snapshot ",snapshotobj[0].SnapshotId," that was created on ", maxDate );
+                                    out = {'Snapshot': snapshotobj[0].SnapshotId}
+                                    result = out;
+                                }
+                                else{
+                                      console.log("No Snapshot Found");
+                                      result = {'Snapshot' : 'No Snapshot Found','VolumeId':volume };
+                                }
+                            callback(null,result);
+                          }
+                    }
+                    for (var i in volumes) {
+                      volume = volumes[i];
+                      console.log("Searching for snapshot of volume ",volume);
+                      var params = { Filters: [{ Name: "volume-id", Values: [volume] },{ Name: "progress",  Values : ["100%"]}] };      
+                      ec2.describeSnapshots(params,findLatestSnapshot );      
+                    }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFStopInstance: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                      var AWS = require('aws-sdk');
+                      var ec2 = new AWS.EC2();
+                      console.log("%j",event);
+                      VolumeObj = event.filter(function(o){return o.InstanceId;});
+                      function stopInstance(err, data) {
+                            if (err) console.log(err, err.stack); 
+                            else     callback(null, event);        
+                          }
+                      for (var i in VolumeObj) {
+                          Instance = VolumeObj[i].InstanceId;
+                          console.log("Stopping ", Instance);
+                          var params = { InstanceIds: [Instance], Force: true };
+                          ec2.stopInstances(params, stopInstance);
+                      }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFCheckInstance: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                      var AWS = require('aws-sdk');
+                      var ec2 = new AWS.EC2();
+                      console.log("%j",event);
+                      VolumeObj = event.filter(function(o){return o.InstanceId;});
+                      function checkInstanceStop(err, data) {
+                              if (err) console.log(err, err.stack); // an error occurred
+                              else{
+                                  var StatusCode = JSON.stringify(data.Reservations[0].Instances[0].State.Code)
+                                  if (StatusCode == 80){
+                                      console.log('Instance is stopped');
+                                      callback(null,event);
+                                  }
+                                  else
+                                  {
+                                      context.fail("InstanceNotStopped");
+                                      console.log('Instance is not stopped');
+                                  }
+                              }
+                          }
+                      for (var i in VolumeObj) {
+                          Instance = VolumeObj[i].InstanceId;
+                          console.log("Stopping ", Instance);
+                          var params = {InstanceIds: [Instance]};
+                          ec2.describeInstances(params, checkInstanceStop);
+                      }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFDetachVolume: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                      var AWS = require('aws-sdk');
+                      var ec2 = new AWS.EC2();
+                      console.log("%j",event);
+                      VolumeObj = event.filter(function(o){return o.VolumeId;});
+                      function checkVolDetach(err, data) {
+                             if (err) console.log(err, err.stack); 
+                             else     callback(null, event);           
+                          }
+                      for (var i in VolumeObj) {
+                          voltodetach = VolumeObj[i].VolumeId;
+                          console.log("Detaching ", voltodetach);
+                          var params = {VolumeId: voltodetach, Force: true};
+                          ec2.detachVolume(params, checkVolDetach);
+                      }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFCheckVolume: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                      var AWS = require('aws-sdk');
+                      var ec2 = new AWS.EC2();
+                      console.log("%j",event);
+                      VolumeObj = event.filter(function(o){return o.VolumeId;});
+                      RestoredVolumeObj = event.filter(function(o){return o.RestoredVolumeId;});
+                      Obj = VolumeObj;
+                      function checkVolumeAvailable(err, data) {
+                            if (err) console.log(err, err.stack); 
+                            else {    
+                                console.log(JSON.stringify(data));
+                                var State = JSON.stringify(data.Volumes[0].State);
+                                if (State === '"available"')
+                                {
+                                  console.log('Volume is available');
+                                  callback(null,event);
+                                }
+                                else
+                                {
+                                  context.fail("Volume Not available");
+                                  console.log('Volume Not available');
+                                }
+                            }         
+                      }
+                      for (var i in Obj) {
+                          Volume = Obj[i].VolumeId;
+                          console.log("Checking if Available ", Volume);
+                          var params = {Filters: [{Name: "volume-id", Values: [Volume]}]};
+                          ec2.describeVolumes(params,checkVolumeAvailable);
+                      }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFRestoreSnapshot: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                      var AWS = require('aws-sdk');
+                      var ec2 = new AWS.EC2();
+                      LastestSnapShotObj = event.filter(function(o){return o.Snapshot;});
+                      VolumeObj = event.filter(function(o){return o.InstanceId;});
+                      function getVolume(err, data) {
+                                  if (err) console.log(err, err.stack);
+                                  else {
+                                      LatestSnapstring = LastestSnapShotObj[i]; 
+                                      VolumeString = data;
+                                      InstanceString = {'InstanceId' : VolumeObj[x].InstanceId };
+                                      DeviceString = {'Device' : VolumeObj[x].Device}
+                                      BrokenVolString = {'BrokenVolume' : VolumeObj[x].VolumeId}
+                                      var out = [];
+                                      out.push(LatestSnapstring);
+                                      out.push(VolumeString);
+                                      out.push(InstanceString);
+                                      out.push(DeviceString);
+                                      out.push(BrokenVolString);
+                                      callback(null, out);
+                                  }
+                              }
+                      for (var i in LastestSnapShotObj) {
+                          for (var x in VolumeObj) {
+                              var params;
+                              var VolAZ = VolumeObj[x].AvailabilityZone;
+                              var VolSize = VolumeObj[x].Size;
+                              var VolType = VolumeObj[x].VolumeType;
+                              var VolIops = VolumeObj[x].Iops;
+                              var VolEncrypted = VolumeObj[x].Encrypted;            
+                              var VolSnapshotId = LastestSnapShotObj[i].Snapshot;
+                              if (VolType === '"io1"'){
+                                  params = {SnapshotId: VolSnapshotId, AvailabilityZone: VolAZ, Size: VolSize, VolumeType: VolType,Iops: VolIops,Encrypted: VolEncrypted};
+                              }
+                              else {
+                                  params = {SnapshotId: VolSnapshotId, AvailabilityZone: VolAZ, Size: VolSize, VolumeType: VolType,Encrypted: VolEncrypted};
+                              }
+                              ec2.createVolume(params, getVolume);     
+                          }
+                      }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFAttachVolume: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                          var AWS = require('aws-sdk');
+                          var ec2 = new AWS.EC2();
+                          InstanceObj = event.filter(function(o){return o.InstanceId;});
+                          RestoredVolumeObj = event.filter(function(o){return o.VolumeId;});
+                          DeviceVolumeObj = event.filter(function(o){return o.Device;});
+                          function getVolumeAttached(err, data) {
+                              if (err) console.log(err, err.stack); 
+                                  else     
+                                  {
+                                      console.log(data);
+                                      callback(null, event);         
+                                  }
+                              }
+                          console.log("Attaching Volume ", RestoredVolumeObj[0].VolumeId, " to Instance ", InstanceObj[0].InstanceId, " as Device ", DeviceVolumeObj[0].Device);
+                          var params = {Device: DeviceVolumeObj[0].Device, InstanceId: InstanceObj[0].InstanceId, VolumeId: RestoredVolumeObj[0].VolumeId};
+                          ec2.attachVolume(params, getVolumeAttached);
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFCheckVolumeInuse: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                      var AWS = require('aws-sdk');
+                      var ec2 = new AWS.EC2();
+                      VolumeObj = event.filter(function(o){return o.VolumeId;});
+                      function getVolumeStatus(err, data) {
+                            if (err) console.log(err, err.stack); 
+                            else {    
+                                console.log(JSON.stringify(data));
+                                var State = JSON.stringify(data.Volumes[0].State);
+                                 if (State === '"in-use"')
+                                {
+                                  console.log('Volume is in-use');
+                                  callback(null,event);
+                                }
+                                else
+                                {
+                                  context.fail("Volume Not in-use");
+                                  console.log('Volume Not in-use');
+                                }
+                            }         
+                      }
+                      for (var i in VolumeObj) {
+                          Volume = VolumeObj[i].VolumeId;
+                          
+                          console.log("Checking if In Use ", Volume);
+                    
+                          var params = {Filters: [{Name: "volume-id", Values: [Volume]}]};
+                          ec2.describeVolumes(params, getVolumeStatus);   
+                    }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFStartInstance: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  exports.handler = (event, context, callback) => {
+                      var AWS = require('aws-sdk');
+                      var ec2 = new AWS.EC2();
+                      console.log("%j",event);
+                      VolumeObj = event.filter(function(o){return o.InstanceId;});
+                      BrokenVolumeObj = event.filter(function(o){return o.BrokenVolume;});
+                      function getInstance(err, data) {
+                            if (err) console.log(err, err.stack); 
+                            else     
+                                      result = {'InstanceId': VolumeObj[i].InstanceId, 'VolumeId': BrokenVolumeObj[i].BrokenVolume};
+                                      callback(null, result);        
+                          }
+                      for (var i in VolumeObj) {
+                          Instance = VolumeObj[i].InstanceId;
+                          console.log("Starting ", Instance);
+                          var params = { InstanceIds: [Instance] };
+                          ec2.startInstances(params, getInstance);
+                      }
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  LFSNSNotif: 
+    Type: "AWS::Lambda::Function"
+    Properties: 
+      Environment: 
+          Variables: 
+            SNSARN: 
+              Fn::Join:
+                - "" 
+                - - "arn:aws:sns:"
+                  - !Ref "AWS::Region"
+                  - ":"
+                  - !Ref "AWS::AccountId"
+                  - ":"
+                  - !Ref "SNSTopicName"
+      Handler: "index.handler"
+      Role: !GetAtt ExecutionRole.Arn
+      Code: 
+        ZipFile: |
+                  var AWS = require('aws-sdk');
+                  var sns = new AWS.SNS();
+                  const snsTopic =process.env.SNSARN; //use ARN
+                  exports.handler = (event, context, callback) => {
+                      
+                      healthMessage = "AWS Health reported volume " + event.VolumeId + " has experienced AWS_EBS_VOLUME_LOST, AWS Health Tools tried to Restore and received message : " + event.SNS.Message 
+                      
+                      eventName = "AWS_EBS_VOLUME_LOST"
+                      var snsPublishParams = {
+                          Message: healthMessage, 
+                          Subject: eventName,
+                          TopicArn: snsTopic
+                      };
+                      sns.publish(snsPublishParams, function(err, data) {
+                      if (err) {
+                          const snsPublishErrorMessage = `Error publishing AWS Health event to SNS`;
+                          console.log(snsPublishErrorMessage, err);
+                          callback(snsPublishErrorMessage);
+                          } 
+                      else {
+                          const snsPublishSuccessMessage = `Successfully got details from AWS Health event, ${!eventName} and published to SNS topic.`;
+                          console.log(snsPublishSuccessMessage, data);
+                          callback(null, snsPublishSuccessMessage); //return success
+                          }
+                      });
+                  };
+      Runtime: "nodejs6.1"
+      Timeout: "25"
+  VolLostStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString: 
+                !Sub  
+                  - |-
+                    {
+                      "StartAt": "GatherVolumeSnapshotInfo",
+                      "States": {
+                        "GatherVolumeSnapshotInfo": {
+                          "Type": "Parallel",
+                          "Next": "StopInstance",
+                          "Branches": [
+                            {
+                              "StartAt": "FindVolumeDetails",
+                              "States": {
+                                "FindVolumeDetails": {
+                                  "Type": "Task",
+                                  "Resource": "${ FindVol }",
+                                  "Next": "CheckIfRootDev"
+                                },
+                                "CheckIfRootDev": {
+                                  "Type": "Choice",
+                                  "Choices": [
+                                    {
+                                      "Variable": "$.Device",
+                                      "StringEquals": "/dev/xvda",
+                                      "Next": "PassValueVolume"
+                                    },
+                                    {
+                                      "Variable": "$.Device",
+                                      "StringEquals": "/dev/sda1",
+                                      "Next": "PassValueVolume"
+                                    },
+                                    {
+                                      "Variable": "$.Device",
+                                      "StringEquals": "None",
+                                      "Next": "PassMessageDeviceDetached"
+                                    }
+                                  ],
+                                  "Default": "PassMessageDeviceNotRoot"
+                                },
+                                "PassMessageDeviceNotRoot": {
+                                  "Type": "Pass",
+                                  "Result": {
+                                    "Message": "Volume is not Root (Volume needs to be either/dev/xvda or /dev/sda1 ).  Please attend to the volume manually."
+                                  },
+                                  "ResultPath": "$.SNS",
+                                  "Next": "SendSNSErrorDeviceNotRoot"
+                                },
+                                "PassMessageDeviceDetached": {
+                                  "Type": "Pass",
+                                  "Result": {
+                                    "Message": "Volume is Detached (Volume needs to be attached to either/dev/xvda or /dev/sda1 of an instance ).  Please attend to the volume manually."
+                                  },
+                                  "ResultPath": "$.SNS",
+                                  "Next": "SendSNSErrorDeviceDetached"
+                                },
+                                "SendSNSErrorDeviceNotRoot": {
+                                  "Type": "Task",
+                                  "Resource": "${SNSNotif}",
+                                  "Next": "NotRoot"
+                                },
+                                "SendSNSErrorDeviceDetached": {
+                                  "Type": "Task",
+                                  "Resource": "${SNSNotif}",
+                                  "Next": "Detached"
+                                },
+                                "NotRoot": {
+                                  "Type": "Fail",
+                                  "Cause": "Volume is not /dev/xvda or /dev/sda1"
+                                },
+                                "Detached": {
+                                  "Type": "Fail",
+                                  "Cause": "Volume is not attached to instance as /dev/xvda or /dev/sda1."
+                                },
+                                "PassValueVolume": {
+                                  "Type": "Pass",
+                                  "End": true
+                                }
+                              }
+                            },
+                            {
+                              "StartAt": "FindLatestSnapshot",
+                              "States": {
+                                "FindLatestSnapshot": {
+                                  "Type": "Task",
+                                  "Resource": "${FindSnap}",
+                                  "Next": "CheckIfSnapshotExist"
+                                },
+                                "CheckIfSnapshotExist": {
+                                  "Type": "Choice",
+                                  "Choices": [
+                                    {
+                                      "Variable": "$.Snapshot",
+                                      "StringEquals": "No Snapshot Found",
+                                      "Next": "PassMessageNoSnapshot"
+                                    }
+                                  ],
+                                  "Default": "PassValueSnapshot"
+                                },
+                                "PassMessageNoSnapshot": {
+                                  "Type": "Pass",
+                                  "Result": {
+                                    "Message": "No Shapshot Found on this Volume. Please attend to the volume manually."
+                                  },
+                                  "ResultPath": "$.SNS",
+                                  "Next": "SendSNSErrorNoSnapshot"
+                                },
+                                "SendSNSErrorNoSnapshot": {
+                                  "Type": "Task",
+                                  "Resource": "${SNSNotif}",
+                                  "Next": "NoSnapshot"
+                                },
+                                "NoSnapshot": {
+                                  "Type": "Fail",
+                                  "Cause": "No Snapshot Found for the Volume."
+                                },
+                                "PassValueSnapshot": {
+                                  "Type": "Pass",
+                                  "End": true
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "StopInstance": {
+                          "Type": "Task",
+                          "Resource": "${StopInst}",
+                          "Next": "WaitInstanceStop"
+                        },
+                        "WaitInstanceStop": {
+                          "Type": "Task",
+                          "Resource": "${CheckInst}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "DetachRootVolume"
+                        },
+                        "DetachRootVolume": {
+                          "Type": "Task",
+                          "Resource": "${DetachVol}",
+                          "Next": "WaitDetachVolume"
+                        },
+                        "WaitDetachVolume": {
+                          "Type": "Task",
+                          "Resource": "${CheckVol}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "RestoreSnapshot"
+                        },
+                        "RestoreSnapshot": {
+                          "Type": "Task",
+                          "Resource": "${RestSnap}",
+                          "Next": "WaitVolumeCreated"
+                        },
+                        "WaitVolumeCreated": {
+                          "Type": "Task",
+                          "Resource": "${CheckVol}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "AttachNewVolume"
+                        },
+                        "AttachNewVolume": {
+                          "Type": "Task",
+                          "Resource": "${AttachVol}",
+                          "Next": "WaitVolumeAttached"
+                        },
+                        "WaitVolumeAttached": {
+                          "Type": "Task",
+                          "Resource": "${CheckVolInuse}",
+                          "Retry": [
+                            {
+                              "ErrorEquals": [
+                                "HandledError"
+                              ],
+                              "IntervalSeconds": 5,
+                              "MaxAttempts": 3000
+                            }
+                          ],
+                          "Next": "StartInstance"
+                        },
+                        "StartInstance": {
+                          "Type": "Task",
+                          "Resource": "${StartInst}",
+                          "Next": "PassMessageRestoreSuccess"
+                        },
+                        "PassMessageRestoreSuccess": {
+                          "Type": "Pass",
+                          "Result": {
+                            "Message": "New volume has been restored from the latest snapshot, and attached to the instance. Please double check everything is OK with the instance."
+                          },
+                          "ResultPath": "$.SNS",
+                          "Next": "SNSMessageRestoreSuccess"
+                        },
+                        "SNSMessageRestoreSuccess": {
+                          "Type": "Task",
+                          "Resource": "${SNSNotif}",
+                          "End": true
+                        }
+                      }
+                    }
+                  - { SNSNotif: !GetAtt LFSNSNotif.Arn, StartInst: !GetAtt LFStartInstance.Arn , CheckVolInuse: !GetAtt LFCheckVolumeInuse.Arn, AttachVol: !GetAtt LFAttachVolume.Arn,  RestSnap: !GetAtt LFRestoreSnapshot.Arn, CheckVol: !GetAtt LFCheckVolume.Arn, DetachVol: !GetAtt LFDetachVolume.Arn, FindVol: !GetAtt LFFindVolumeDetails.Arn, FindSnap: !GetAtt LFFindLatestSnapshot.Arn, StopInst: !GetAtt LFStopInstance.Arn, CheckInst: !GetAtt LFCheckInstance.Arn }
+      RoleArn: !GetAtt ExecutionRole.Arn
