@@ -64,10 +64,11 @@ Resources:
             # main function
             def handler(event, context):
                 message =  str(
-                    event['detail']['eventDescription'][0]['latestDescription']  +
-                    "\n\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=" +
-                    event['detail']['eventArn'] +
-                    "|Click here> for details."
+                    "Account: "+event['account']+
+                    "\n\nService: "+event['detail']['service']+", EventType: "+event['detail']['eventTypeCategory']+
+                    "\n\n"+event['detail']['eventDescription'][0]['latestDescription']+
+                    "\n\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID="+
+                    event['detail']['eventArn']+"|Link> for details."
                 )
                 json.dumps(message)
                 slack_message = {
