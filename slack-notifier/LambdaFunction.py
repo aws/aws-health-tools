@@ -37,13 +37,25 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     message =  str("Account: "+event['account']
-    +"\n\nService: "+event['detail']['service']+", EventType: "+event['detail']['eventTypeCategory']
-    +"\n\n"+event['detail']['eventDescription'][0]['latestDescription']
-    +"\n\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID="+event['detail']['eventArn']+"|Click here> for details.") 
+    +"\nService: "+event['detail']['service']+", EventType: "+event['detail']['eventTypeCategory']
+    +"\n"+event['detail']['eventDescription'][0]['latestDescription']
+    +"\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID="+event['detail']['eventArn']+"|Click here> for details.") 
     json.dumps(message)
     slack_message = {
         'channel': SLACK_CHANNEL,
-        'text': message
+        "text": "*_A new AWS event has been scheduled_*",
+        "username": "AWS - Personal Health Updates",
+        "icon_url": "https://s3-us-west-2.amazonaws.com/slack-files2/avatars/2019-05-31/651576919984_505d9b9fef6b87d7bcb7_72.png",
+        "pretty": "1",
+        "attachments": [
+            {
+                "fallback": "This is attachment with event",
+                "title": event['detail']['eventTypeCategory'],
+                "text": message,
+                "color": "#d8a500",
+                "footer": "Send from lambda",
+            }
+        ]
     }
     logger.info(str(slack_message))
     
