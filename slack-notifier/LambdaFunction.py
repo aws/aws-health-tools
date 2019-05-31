@@ -36,7 +36,10 @@ logger.setLevel(logging.INFO)
 #main function
 
 def lambda_handler(event, context):
-    message =  str(event['detail']['eventDescription'][0]['latestDescription']  + "\n\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=" + event['detail']['eventArn'] + "|Click here> for details.")
+    message =  str("Account: "+event['account']
+    +"\n\nService: "+event['detail']['service']+", EventType: "+event['detail']['eventTypeCategory']
+    +"\n\n"+event['detail']['eventDescription'][0]['latestDescription']
+    +"\n\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID="+event['detail']['eventArn']+"|Click here> for details.") 
     json.dumps(message)
     slack_message = {
         'channel': SLACK_CHANNEL,
@@ -53,4 +56,3 @@ def lambda_handler(event, context):
         logger.error("Request failed: %d %s", e.code, e.reason)
     except URLError as e:
         logger.error("Server connection failed: %s", e.reason)
-
