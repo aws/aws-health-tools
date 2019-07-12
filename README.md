@@ -29,3 +29,4 @@ Setup and usage instructions are present for each tool in its respective directo
 ### License
 AWS Health Tools are licensed under the Apache 2.0 License.
 
+Disclaimer: The “AWS_<serviceName>_OPERATIONAL_ISSUE” Amazon CloudWatch event type codes are for events where AWS is posting details to specific AWS accountIds. General service health events are not posted to this event type code at this time. Instead they are currently posted to the Service Health Dashboard (SHD) and are visible via the Personal Health Dashboard (PHD) in the AWS management console as well as returned via the AWS Health API.
