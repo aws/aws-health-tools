@@ -1,5 +1,9 @@
 ## AWS Health AWS_EBS_VOLUME_LOST
 
+**Note:** This instruction is deprecated. Please refer to the [stepbystep/README](https://github.com/aws/aws-health-tools/blob/master/automated-actions/AWS_EBS_VOLUME_LOST/stepbystep/README.md) for the latest instruction.
+
+---
+
 ### Description
 Underlying hardware related to your EBS volume has failed, and the data associated with the volume is unrecoverable.
 If you have an EBS snapshot of the volume, you need to restore that volume from your snapshot. 

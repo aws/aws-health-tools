@@ -1,0 +1,12 @@
+[
+    {
+        "DetailType": "AWS Health Abuse Event",
+        "Source": "awsmock.health",
+        "Time": "2018-11-27T01:30:00Z <<fill this time in GMT>>",
+        "Resources": [
+            "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/i-1234",
+            "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/i-4567"
+        ],
+        "Detail": "{\"eventArn\": \"arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34\",\"service\": \"ABUSE\",\"eventTypeCode\": \"AWS_ABUSE_DOS_REPORT\",\"eventTypeCategory\": \"issue\",\"startTime\": \"Tue, 27 Nov 2018 01:30:00 GMT\",\"eventDescription\": [{\"language\": \"en_US\",\"latestDescription\": \"Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account.\"}],\"affectedEntities\": [{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/i-1234\"},{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/i-4567\"}]}"
+    }
+]
