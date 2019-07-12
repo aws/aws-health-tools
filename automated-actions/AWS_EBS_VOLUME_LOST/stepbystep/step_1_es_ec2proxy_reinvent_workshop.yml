@@ -1,0 +1,413 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  PublicCidr:
+    Type: String
+    Description: The public IP address that Kibana will be accessible from.
+    MinLength: 9
+    MaxLength: 18
+    Default: "0.0.0.0/0"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
+
+Mappings:
+  AWSInstanceType2Arch:
+    t1.micro:
+      Arch: PV64
+    t2.large:
+      Arch: HVM64
+    t2.medium:
+      Arch: HVM64
+    t2.micro:
+      Arch: HVM64
+    t2.nano:
+      Arch: HVM64
+    t2.small:
+      Arch: HVM64
+  AWSRegionArch2AMI:
+    ap-northeast-1:
+      HVM64: ami-383c1956
+      HVMG2: ami-08e5c166
+      PV64: ami-393c1957
+    ap-northeast-2:
+      HVM64: ami-249b554a
+      HVMG2: NOT_SUPPORTED
+      PV64: NOT_SUPPORTED
+    ap-southeast-1:
+      HVM64: ami-c9b572aa
+      HVMG2: ami-5a15d239
+      PV64: ami-34bd7a57
+    ap-southeast-2:
+      HVM64: ami-48d38c2b
+      HVMG2: ami-0c1a446f
+      PV64: ami-ced887ad
+    cn-north-1:
+      HVM64: ami-43a36a2e
+      HVMG2: NOT_SUPPORTED
+      PV64: ami-18ac6575
+    eu-central-1:
+      HVM64: ami-bc5b48d0
+      HVMG2: ami-ba1a09d6
+      PV64: ami-794a5915
+    eu-west-1:
+      HVM64: ami-bff32ccc
+      HVMG2: ami-83fd23f0
+      PV64: ami-95e33ce6
+    sa-east-1:
+      HVM64: ami-6817af04
+      HVMG2: NOT_SUPPORTED
+      PV64: ami-7d15ad11
+    us-east-1:
+      HVM64: ami-60b6c60a
+      HVMG2: ami-e998ea83
+      PV64: ami-5fb8c835
+    us-west-1:
+      HVM64: ami-d5ea86b5
+      HVMG2: ami-943956f4
+      PV64: ami-56ea8636
+    us-west-2:
+      HVM64: ami-f0091d91
+      HVMG2: ami-315f4850
+      PV64: ami-d93622b8
+
+
+Resources:
+#####
+#VPC#
+#####
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+  PublicSubnetRouteTableAssociationA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.3.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+  PublicSubnetRouteTableAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetB
+  NATGWA:
+    DependsOn: InternetGateway
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      AllocationId: !GetAtt NATEIPA.AllocationId
+      SubnetId: !Ref PublicSubnetA
+  NATEIPA:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  NATGWB:
+    DependsOn: InternetGateway
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      AllocationId: !GetAtt NATEIPB.AllocationId
+      SubnetId: !Ref PublicSubnetB
+  NATEIPB:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  PrivateRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGWA
+      RouteTableId: !Ref PrivateRouteTableA
+  PrivateRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteB:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGWB
+      RouteTableId: !Ref PrivateRouteTableB
+  PrivateRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateSubnetA:
+    DependsOn: PrivateRouteA
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+  PrivateSubnetRouteTableAssociationA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableA
+      SubnetId: !Ref PrivateSubnetA
+  PrivateSubnetB:
+    DependsOn: PrivateRouteB
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.4.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+  PrivateSubnetRouteTableAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableB
+      SubnetId: !Ref PrivateSubnetB
+
+####
+#ES#
+####
+
+  ElasticsearchDomain:
+    Type: "AWS::Elasticsearch::Domain"
+    Properties:
+      DomainName: !Sub ${AWS::StackName}-domain
+      ElasticsearchVersion: 6.3
+      ElasticsearchClusterConfig:
+        InstanceCount: 2
+        InstanceType: m4.large.elasticsearch
+      VPCOptions:
+        SubnetIds: 
+          - !Ref PrivateSubnetA
+        SecurityGroupIds:
+          - !Ref ElasticsearchSecurityGroup
+      EBSOptions:
+        EBSEnabled: true
+        VolumeType: gp2
+        VolumeSize: 100
+      AccessPolicies:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: '*'
+            Action: 'es:*'
+            Resource: '*'
+
+  ElasticsearchSecurityGroup:
+      Type: "AWS::EC2::SecurityGroup"
+      Properties:
+        GroupDescription: Allows internal data loading and public access to Elasticsearch.
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+          # -
+          #   CidrIp: !Ref PublicCidr
+          #   IpProtocol: TCP
+          #   FromPort: 80
+          #   ToPort: 80
+          -
+            CidrIp: 10.1.0.0/16
+            IpProtocol: TCP
+            FromPort: 0
+            ToPort: 65535
+
+  ####################################
+  # ElasticSearch Reverse Proxy node #
+  ####################################
+  ProxyEIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      Domain: vpc
+  ProxyEIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ProxyEIP.AllocationId
+      InstanceId: !Ref ProxyServer
+  ProxyServer:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          proxy_install:
+          - install_cfn
+          - install_nginx
+          - configure_proxy
+        configure_proxy:
+          files:
+            /etc/nginx/nginx.conf:
+              content: !Sub 
+                  - > 
+                      worker_processes auto; 
+                       
+                      events { 
+                          worker_connections 1024;
+                      }
+                       
+                      http { 
+                       
+                          server {
+                            listen 80 default_server;
+                            server_name localhost;
+                       
+                            location / {
+                              proxy_http_version 1.1;
+                              proxy_set_header Connection "Keep-Alive";
+                              proxy_set_header Proxy-Connection "Keep-Alive";
+                              proxy_set_header Authorization "";                       
+                              proxy_pass https://${ESDom}/_plugin/kibana/;
+                              proxy_redirect https://${ESDom}/_plugin/kibana/ http://${PxyEIP}/kibana/;
+                          }
+                       
+                            location ~ (/app/kibana|/app/timelion|/bundles|/es_admin|/plugins|/api|/ui|/elasticsearch) {
+                               #auth_basic_user_file   /etc/nginx/.htpasswd;
+                               #auth_basic         "Auth Required";
+                               proxy_pass              https://${ESDom};
+                               proxy_set_header        Host $host;
+                               proxy_set_header        X-Real-IP $remote_addr;
+                               proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+                               proxy_set_header        X-Forwarded-Proto $scheme;
+                               proxy_set_header        X-Forwarded-Host $http_host;
+                               proxy_set_header    Authorization "";
+                               proxy_hide_header   Authorization;
+                          }
+                        }
+                      }
+                  - { PxyEIP: !Ref ProxyEIP , ESDom: !GetAtt ElasticsearchDomain.DomainEndpoint }
+              group: root
+              mode: '000400'
+              owner: root
+          services: 
+            sysvinit: 
+              nginx: 
+                enabled: "true"
+                ensureRunning: "true"
+                files: 
+                  - "/etc/nginx/nginx.conf"
+        install_cfn:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Sub |
+                [main]
+                stack= ${AWS::StackId}
+                region=${AWS::Region}
+              group: root
+              mode: '000400'
+              owner: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.ProxyServer.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource ProxyServer --configsets proxy_install
+              group: root
+              mode: '000400'
+              owner: root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                - /etc/cfn/cfn-hup.conf
+                - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+        install_nginx:
+          packages:
+            yum:
+              nginx: []
+          services:
+            sysvinit:
+              nginx:
+                enabled: true
+                ensureRunning: true
+    Properties:
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch, 't2.large', Arch]]      
+      InstanceType: t2.large
+      SubnetId: !Ref PublicSubnetA
+      SecurityGroupIds: 
+        - !Ref ProxyServerSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+           #!/bin/bash -xe
+           yum update -y aws-cfn-bootstrap
+           /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource ProxyServer --configsets proxy_install --region ${AWS::Region}
+           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackId} --resource ProxyServer --region ${AWS::Region}
+  ProxyServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: "Enable HTTP access via port 80 locked down to the load balancer + SSH access"
+      SecurityGroupIngress:
+        - CidrIp: !Ref PublicCidr
+          FromPort: '80'
+          IpProtocol: tcp
+          ToPort: '80'
+
+Outputs:
+  KibanaURL:
+    Description: Access URL for Kibana.
+    Value:
+      !Join
+        - ''
+        - - 'http://'
+          - !Ref ProxyEIP
+  KibanaWhitelist:
+    Description: Public IPs Kibana is accessible from.
+    Value: !Ref PublicCidr
+  ESDomain:
+    Description: ES Domain 
+    Value: !GetAtt ElasticsearchDomain.DomainEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-DomainEndpoint"
+  ESLambdaSecurityGroup:
+    Description: ESLambdaSecurityGroup
+    Value: !Ref ElasticsearchSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-ESLambdaSecurityGroup"
+  PrivateSubnetA:
+    Description: Private Subnet A
+    Value: !Ref PrivateSubnetA
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetA"
+  PrivateSubnetB:
+    Description: Private Subnet B
+    Value: !Ref PrivateSubnetB
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetB"

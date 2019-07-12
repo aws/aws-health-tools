@@ -1,0 +1,130 @@
+[
+  {
+    "_id": "03e5ef50-19f6-11e8-9af1-61f8be32b898",
+    "_type": "dashboard",
+    "_source": {
+      "title": "PHD Events",
+      "hits": 0,
+      "description": "",
+      "panelsJSON": "[{\"embeddableConfig\":{\"vis\":{\"defaultColors\":{\"0 - 100\":\"rgb(0,104,55)\"}}},\"gridData\":{\"h\":3,\"i\":\"1\",\"w\":4,\"x\":0,\"y\":0},\"id\":\"162b0d80-2356-11e8-9af1-61f8be32b898\",\"panelIndex\":\"1\",\"type\":\"visualization\",\"version\":\"6.2.2\"},{\"embeddableConfig\":{\"vis\":{\"legendOpen\":true}},\"gridData\":{\"h\":3,\"i\":\"4\",\"w\":4,\"x\":7,\"y\":0},\"id\":\"1e735810-2358-11e8-9af1-61f8be32b898\",\"panelIndex\":\"4\",\"type\":\"visualization\",\"version\":\"6.2.2\"},{\"embeddableConfig\":{\"vis\":{\"legendOpen\":true}},\"gridData\":{\"h\":3,\"i\":\"6\",\"w\":6,\"x\":0,\"y\":3},\"id\":\"acedd790-2359-11e8-9af1-61f8be32b898\",\"panelIndex\":\"6\",\"type\":\"visualization\",\"version\":\"6.2.2\"},{\"embeddableConfig\":{\"vis\":{\"params\":{\"sort\":{\"columnIndex\":0,\"direction\":\"desc\"}}}},\"gridData\":{\"h\":8,\"i\":\"7\",\"w\":12,\"x\":0,\"y\":6},\"id\":\"f3ae21c0-2909-11e8-9af1-61f8be32b898\",\"panelIndex\":\"7\",\"type\":\"visualization\",\"version\":\"6.2.2\"},{\"gridData\":{\"h\":3,\"i\":\"9\",\"w\":3,\"x\":4,\"y\":0},\"id\":\"4b725930-2914-11e8-9af1-61f8be32b898\",\"panelIndex\":\"9\",\"type\":\"visualization\",\"version\":\"6.2.2\"},{\"gridData\":{\"h\":3,\"i\":\"10\",\"w\":6,\"x\":6,\"y\":3},\"id\":\"48c1fc10-30b0-11e8-9af1-61f8be32b898\",\"panelIndex\":\"10\",\"type\":\"visualization\",\"version\":\"6.2.2\"}]",
+      "optionsJSON": "{\"darkTheme\":true,\"useMargins\":false}",
+      "version": 1,
+      "timeRestore": true,
+      "timeTo": "now",
+      "timeFrom": "now-14d",
+      "refreshInterval": {
+        "display": "Off",
+        "pause": false,
+        "value": 0
+      },
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"query\":{\"language\":\"lucene\",\"query\":\"\"},\"filter\":[],\"highlightAll\":true,\"version\":true}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "1e735810-2358-11e8-9af1-61f8be32b898",
+    "_type": "visualization",
+    "_source": {
+      "title": "PHD: Events by Availability Zone",
+      "visState": "{\"title\":\"PHD: Events by Availability Zone\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"isDonut\":true},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{\"customLabel\":\"# of Events\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"AvailabilityZone.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"AZ\"}}]}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"47cf1d20-357d-11e8-be15-c9e837c0799c\",\"filter\":[],\"query\":{\"query\":\"\",\"language\":\"lucene\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "162b0d80-2356-11e8-9af1-61f8be32b898",
+    "_type": "visualization",
+    "_source": {
+      "title": "PHD: Latest Event Time",
+      "visState": "{\"title\":\"PHD: Latest Event Time\",\"type\":\"metric\",\"params\":{\"addTooltip\":true,\"addLegend\":false,\"type\":\"gauge\",\"gauge\":{\"verticalSplit\":false,\"autoExtend\":false,\"percentageMode\":false,\"gaugeType\":\"Metric\",\"gaugeStyle\":\"Full\",\"backStyle\":\"Full\",\"orientation\":\"vertical\",\"colorSchema\":\"Green to Red\",\"gaugeColorMode\":\"None\",\"useRange\":false,\"colorsRange\":[{\"from\":0,\"to\":100}],\"invertColors\":false,\"labels\":{\"show\":true,\"color\":\"black\"},\"scale\":{\"show\":false,\"labels\":false,\"color\":\"#333\",\"width\":2},\"type\":\"simple\",\"style\":{\"fontSize\":32,\"bgColor\":false,\"labelColor\":false,\"subText\":\"\",\"bgFill\":\"#fca816\"}}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"PhdEventTime\",\"customLabel\":\"Latest Event Time\"}}]}",
+      "uiStateJSON": "{\"vis\":{\"defaultColors\":{\"0 - 100\":\"rgb(0,104,55)\"}}}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"47cf1d20-357d-11e8-be15-c9e837c0799c\",\"filter\":[],\"query\":{\"query\":\"\",\"language\":\"lucene\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "48c1fc10-30b0-11e8-9af1-61f8be32b898",
+    "_type": "visualization",
+    "_source": {
+      "title": "PHD: PHD Event ID Timeline (Max 14 Days)",
+      "visState": "{\"title\":\"PHD: PHD Event ID Timeline (Max 14 Days)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":false,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\",\"defaultYExtents\":true,\"setYExtents\":false},\"labels\":{\"show\":true,\"rotate\":75,\"filter\":false,\"truncate\":0},\"title\":{\"text\":\"Unique count of PhdEventId.keyword\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Unique count of PhdEventId.keyword\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"left\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"cardinality\",\"schema\":\"metric\",\"params\":{\"field\":\"PhdEventId.keyword\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"Timestamp\",\"interval\":\"d\",\"customInterval\":\"12h\",\"min_doc_count\":1,\"extended_bounds\":{},\"customLabel\":\"Date/Time\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"PhdEventId.keyword\",\"size\":100,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"Event ID\"}}]}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"47cf1d20-357d-11e8-be15-c9e837c0799c\",\"filter\":[{\"meta\":{\"index\":\"0fc5e2a0-2066-11e8-9af1-61f8be32b898\",\"negate\":false,\"disabled\":false,\"alias\":null,\"type\":\"range\",\"key\":\"PhdEventTime\",\"value\":\"now-14d to now\",\"params\":{\"gte\":\"now-14d\",\"lt\":\"now\"}},\"range\":{\"PhdEventTime\":{\"gte\":\"now-14d\",\"lt\":\"now\"}},\"$state\":{\"store\":\"appState\"}}],\"query\":{\"query\":\"\",\"language\":\"lucene\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "4b725930-2914-11e8-9af1-61f8be32b898",
+    "_type": "visualization",
+    "_source": {
+      "title": "PHD: Impacted Stacks",
+      "visState": "{\"title\":\"PHD: Impacted Stacks\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"isDonut\":true},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{\"customLabel\":\"# of Events\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"StackName.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"Device\"}}]}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"47cf1d20-357d-11e8-be15-c9e837c0799c\",\"filter\":[],\"query\":{\"query\":\"\",\"language\":\"lucene\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "acedd790-2359-11e8-9af1-61f8be32b898",
+    "_type": "visualization",
+    "_source": {
+      "title": "PHD: Impacted Stack Timeline (Max 14 Days)",
+      "visState": "{\"title\":\"PHD: Impacted Stack Timeline (Max 14 Days)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":false,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\",\"defaultYExtents\":true,\"setYExtents\":false},\"labels\":{\"show\":true,\"rotate\":75,\"filter\":false,\"truncate\":0},\"title\":{\"text\":\"Unique count of PhdEventId.keyword\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Unique count of PhdEventId.keyword\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true,\"interpolate\":\"cardinal\"}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"left\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"cardinality\",\"schema\":\"metric\",\"params\":{\"field\":\"PhdEventId.keyword\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"Timestamp\",\"interval\":\"d\",\"customInterval\":\"2h\",\"min_doc_count\":1,\"extended_bounds\":{},\"customLabel\":\"Date/Time\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"StackName.keyword\",\"size\":100,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"Event ID\"}}]}",
+      "uiStateJSON": "{}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"47cf1d20-357d-11e8-be15-c9e837c0799c\",\"filter\":[{\"meta\":{\"index\":\"0fc5e2a0-2066-11e8-9af1-61f8be32b898\",\"negate\":false,\"disabled\":false,\"alias\":null,\"type\":\"range\",\"key\":\"PhdEventTime\",\"value\":\"now-14d to now\",\"params\":{\"gte\":\"now-14d\",\"lt\":\"now\"}},\"range\":{\"PhdEventTime\":{\"gte\":\"now-14d\",\"lt\":\"now\"}},\"$state\":{\"store\":\"appState\"}}],\"query\":{\"query\":\"\",\"language\":\"lucene\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  },
+  {
+    "_id": "f3ae21c0-2909-11e8-9af1-61f8be32b898",
+    "_type": "visualization",
+    "_source": {
+      "title": "PHD: Cloud Formation Events",
+      "visState": "{\"title\":\"PHD: Cloud Formation Events\",\"type\":\"table\",\"params\":{\"perPage\":10,\"showPartialRows\":false,\"showMeticsAtAllLevels\":false,\"sort\":{\"columnIndex\":null,\"direction\":null},\"showTotal\":false,\"totalFunc\":\"sum\"},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{\"customLabel\":\"Event\"}},{\"id\":\"4\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"Timestamp\",\"size\":10000,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"Time\"}},{\"id\":\"9\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"PhdEventId.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"PHD Event ID\"}},{\"id\":\"6\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"StackName.keyword\",\"size\":100,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"CF Stack Name\"}},{\"id\":\"5\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"ResourceType.keyword\",\"size\":100,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"Resource Type\"}},{\"id\":\"8\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"PhysicalResourceId.keyword\",\"size\":100,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"Resource ID\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"ResourceStatus.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"customLabel\":\"Resource Status\"}}]}",
+      "uiStateJSON": "{\"vis\":{\"params\":{\"sort\":{\"columnIndex\":0,\"direction\":\"desc\"}}}}",
+      "description": "",
+      "version": 1,
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"index\":\"47cf1d20-357d-11e8-be15-c9e837c0799c\",\"filter\":[],\"query\":{\"query\":\"\",\"language\":\"lucene\"}}"
+      }
+    },
+    "_meta": {
+      "savedObjectVersion": 2
+    }
+  }
+]
