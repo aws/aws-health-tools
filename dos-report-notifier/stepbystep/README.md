@@ -2,7 +2,7 @@
 
 AWS Abuse addresses many different types of potentially abusive activity such as phishing, malware, spam, and denial of service (DoS) / distributed denial of service (DDoS) incidents. When abuse is reported, we alert customers through AWS Health / Personal Health Dashboard so they can take the remediation action that is necessary. Customers want to build automation for handling abuse events and the actions to remediate them.
 
-These steps will go through the how to set up the workflow described above ti handle DoS incidents.
+These steps will go through the how to set up the workflow described above to handle DoS incidents.
 
 ![Solution](images/Solution.png)
 
@@ -84,7 +84,7 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 1. In the **Role name** text box, type *aws\_health\_dos\_lambda\_role\_reinvent*
 2. Click on **View Policy Document**.
 3. Click on **Edit**.
-1. Paste below policy. Be sure to replace <mark>\<\<aws\_accoun\_id\>\></mark> with your AWS account ID and <mark>\<\<SNS\_topic\_name\>\></mark> with the topic name you created as part of Step 1.
+1. Paste below policy. Be sure to replace <mark>\<\<aws\_account\_id\>\></mark> with your AWS account ID and <mark>\<\<SNS\_topic\_name\>\></mark> with the topic name you created as part of Step 1.
 
     ```
 	{
@@ -351,7 +351,7 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 4. Click on **Configure details**.
 5. 	Enter **Name**. Example: *aws\_health\_dos\_report\_cwe\_rule\_reinvent*
 6. Click on **Create rule**.
-1. Create another CloudWatch Events rule that will capture capture a mock Health event. Name it *mock\_aws\_health\_dos\_report\_cwe\_rule\_reinvent*
+1. Create another CloudWatch Events rule that will capture a mock Health event. Name it *mock\_aws\_health\_dos\_report\_cwe\_rule\_reinvent*
 
     ```
     {
