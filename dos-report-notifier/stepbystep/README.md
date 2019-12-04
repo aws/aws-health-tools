@@ -17,26 +17,22 @@ In this step, we will be creating an SNS topic that will be used to send out ema
 <p>
 	
 1. From the AWS Management Console, navigate to the **N. Virginia** (us-east-1) region.
-1. Navigate to the SNS console by clicking on the **Services** drop-down, typing **SNS** in the search bar, and pressing Enter.
+2. Navigate to the SNS console by clicking on the **Services** drop-down, typing **SNS** in the search bar, and pressing Enter.
     
     ![Open SNS console](images/Step_1_1.png)
     
-1. Select **Create topic**.
-1. Enter a **Topic name**. Example: `aws_health_abuse_report_sns_reinvent`
-1. Enter a **Display name**. Example: *abuse\_sns*
-1. Click on **Create topic**.
+3. Select **Create topic**.
+4. Enter a **Topic name**. Example: `aws_health_abuse_report_sns_reinvent`
+5. Enter a **Display name**. Example: *abuse\_sns*
+6. Click on **Create topic**.
 
     ![Create SNS topic](images/Step_1_6.png)
 
-1. Navigate to the Subscriptions tab.
-1. Click on **Create subscription**.
-1. Click on the **Protocol** drop-down and select **SMS**. You can select other protocols, such as HTTPS, and setup webhooks to forward Abuse notifications to systems used within your organization such as Slack, Jira, PagerDuty, etc.
-1. Enter a mobile number where you would like to receive SMSes about AWS Health Abuse events. Example: *1-206-555-0100*
-
-    <!--Note that SMS will be sent only for **US-based mobile numbers**. If you do not have one, please create an SNS subscription to your email ID.-->
-    
-1. Click on **Create subscription**.
-
+7. Navigate to the Subscriptions tab.
+8. Click on **Create subscription**.
+9. Click on the **Protocol** drop-down and select **SMS**. You can select other protocols such as E-mail or HTTPS, and setup webhooks to forward Abuse notifications to systems used within your organization such as Slack, Jira, PagerDuty, etc.
+10. Enter a mobile number where you would like to receive SMSes about AWS Health Abuse events. Example: *1-206-555-0100*
+11. Click on **Create subscription**.
 </p>
 </details>
 
@@ -51,18 +47,18 @@ In this step, we will be creating test EC2 instances that will be used to simula
 <p>
 	
 1. From the AWS Management Console, navigate to the **N. Virginia** (us-east-1) region.
-1. Navigate to the EC2 console by clicking on the **Services** drop-down, typing **EC2** in the search bar, and pressing Enter.
-1. Create 2 new EC2 instances with any configuration.
-2. Set below tags:
+2. Navigate to the EC2 console by clicking on the **Services** drop-down, typing **EC2** in the search bar, and pressing Enter.
+3. Create 2 new t2.nano EC2 instances with any configuration - we will not be logging into them, so you do not need to create a Keypair.
+4. Set the below tags:
  * Instance 1: Key=`Stage`; Value=`Dev`, signifying a non-Production EC2 instance.
  * Instance 2: Key=`Stage`; Value=`Prod`, signifying a Production EC2 instance.
 
 </p>
 </details>
 
-### Step 3 - Create AWS Lambda Function to Parse DoS Abuse Events
+### Step 3 - Create IAM Role and AWS Lambda Function to Parse DoS Abuse Events
 
-In this step, we will be creating a Lambda function to parse the AWS abuse event, publish a notification to the SNS topic created in Step 1, and stop/terminate the non-production EC2 instances that are reported as part of the Abuse event.
+In this step, we will be creating a Lambda function to parse the AWS abuse event, publish a notification to the SNS topic created in Step 1, and stop/terminate the non-production EC2 instances that are reported as part of the Abuse event. Before creating the Lambda function, we must create an IAM role that permits Lambda to publish to SNS and Stop or Terminate the offending EC2 instances.
 
 ![Solution](images/Step_3_Sol.png)
 
@@ -70,12 +66,12 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 <summary>**[ Click here for detailed steps ]**</summary>
 <p>
 
-1. From AWS console make sure to select the us-east-1 region.
+1. Navigate to the AWS console, making sure to select the us-east-1 region.
 2. Click on Services and type in IAM to navigate to the IAM Management Console.
 3. To create a custom role for the Lambda function, click on Roles, then Create role.
 4. Select Lambda as the service that will be using this Role.
 5. Click Create Policy to define a custom policy.
-6. Select the JSON tab and paste the policy below. Be sure to replace <<aws_account_id>> with your AWS account ID and <<SNS_topic_name>> with the topic name you created as part of Step 1.
+6. Select the JSON tab and paste the policy below. **Be sure to replace <<aws_account_id>> with your AWS account ID and <<SNS_topic_name>> with the topic name you created as part of Step 1**.
     ```
 	{
 	    "Version": "2012-10-17",
@@ -111,7 +107,7 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	    ]
 	}
    ```
-7. Click Review policy
+7. Click Review policy.
 8. Enter a name: "dos-report-lambda-policy" and click Create policy.
 9. Go back to the original IAM tab, click the refresh button and search for dos-report-lambda-policy.
 10. Select this policy and click Next: Tags.
@@ -126,7 +122,6 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 19. Under Permissions, select Use an existing role and choose the role created in step 12 (dos-report-lambda-policy).
     ![Create Lambda function](images/Step_2_Lambda_Create.png)
     
-1. In the **Role name** text box, type *aws\_health\_dos\_lambda\_role\_reinvent*
 20. Click on **Create function**.
 21. Paste the below code into the Lambda function.
 
@@ -384,7 +379,54 @@ In this step, we will be creating an Amazon EventBridge (formerly known as Cloud
 **Consider below options to test:**
 
 <details>
-<summary>**Option 1:** Test by triggering mock CloudWatch event through **AWS CLI**</summary><p>
+<summary>**Option 1:** Test using the Lambda Test feature</summary><p>
+
+1. Navigate to the Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
+2. Click on the Lambda function created in Step 3.
+3. Click on **Select a test event** drop-down next to the Test button and choose Configure test event.
+4. Select **Create new test event**.
+5. Enter **Event name**. Example: *dostest*
+6. Paste below input. Be sure to replace <mark>\<\<aws\_account\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID$
+
+    ```
+    {
+            "detail-type": "AWS Health Abuse Event",
+            "source": "awsmock.health",
+            "time": "2019-11-30T00:00:00Z",
+            "resources": [
+                "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>",
+                "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
+            ],
+            "detail": {
+                "eventArn": "arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34",
+                "service": "ABUSE",
+                "eventTypeCode": "AWS_ABUSE_DOS_REPORT",
+                "eventTypeCategory": "issue",
+                "startTime": "Sat, 30 Nov 2019 00:00:00 GMT",
+                "eventDescription": [
+                    {
+                        "language": "en_US",
+                        "latestDescription": "Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account."
+                    }
+                ],
+                "affectedEntities": [
+                    {
+                        "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>"
+                    },
+                    {
+                        "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
+                    }
+                ]
+            }
+        }
+    ```
+
+7. Click on **Create**.
+8. Ensure that *testdos* test event is selected in the drop-down. Click on **Test**.
+</p></details>
+
+<details>
+<summary>**Option 2:** Test by triggering mock CloudWatch event through **AWS CLI**</summary><p>
 
 **Prerequisite:** You need to have the **AWS CLI** installed. Installation instructions can be found [here](https://docs.aws.amazon.com/cli/latest/userguide/installing.html).
 
@@ -408,53 +450,6 @@ In this step, we will be creating an Amazon EventBridge (formerly known as Cloud
     
     `aws events put-events --entries file://mockpayload.json --region us-east-1`
     
-</p></details>
-
-<details>
-<summary>**Option 2:** Test using Lambda Test feature</summary><p>
-
-1. Navigate to the Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
-2. Click on the Lambda function created in Step 3.
-3. Click on **Select a test event** drop-down next to the Test button and choose Configure test event.
-4. Select **Create new test event**.
-5. Enter **Event name**. Example: *dostest*
-6. Paste below input. Be sure to replace <mark>\<\<aws\_account\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID of the instances you created as part of Step 2.
-
-    ```
-    {
-	    "detail-type": "AWS Health Abuse Event",
-	    "source": "awsmock.health",
-	    "time": "2019-11-30T00:00:00Z",
-	    "resources": [
-	        "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>",
-	        "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
-	    ],
-	    "detail": {
-	        "eventArn": "arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34",
-	        "service": "ABUSE",
-	        "eventTypeCode": "AWS_ABUSE_DOS_REPORT",
-	        "eventTypeCategory": "issue",
-	        "startTime": "Sat, 30 Nov 2019 00:00:00 GMT",
-	        "eventDescription": [
-	            {
-	                "language": "en_US",
-	                "latestDescription": "Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account."
-	            }
-	        ],
-	        "affectedEntities": [
-	            {
-	                "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>"
-	            },
-	            {
-	                "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
-	            }
-	        ]
-	    }
-	}
-    ```
-
-7. Click on **Create**.
-8. Ensure that *testdos* test event is selected in the drop-down. Click on **Test**.
 
 </p></details>
 
