@@ -2,7 +2,7 @@
 
 AWS Abuse addresses many different types of potentially abusive activity such as phishing, malware, spam, and denial of service (DoS) / distributed denial of service (DDoS) incidents. When abuse is reported, we alert customers through AWS Health / Personal Health Dashboard so they can take the remediation action that is necessary. Customers want to build automation for handling abuse events and the actions to remediate them.
 
-These steps will go through the how to set up the workflow described above ti handle DoS incidents.
+These steps will go through the how to set up the workflow described above to handle DoS incidents.
 
 ![Solution](images/Solution.png)
 
@@ -17,26 +17,22 @@ In this step, we will be creating an SNS topic that will be used to send out ema
 <p>
 	
 1. From the AWS Management Console, navigate to the **N. Virginia** (us-east-1) region.
-1. Navigate to the SNS console by clicking on the **Services** drop-down, typing **SNS** in the search bar, and pressing Enter.
+2. Navigate to the SNS console by clicking on the **Services** drop-down, typing **SNS** in the search bar, and pressing Enter.
     
     ![Open SNS console](images/Step_1_1.png)
     
-1. Select **Create topic**.
-1. Enter a **Topic name**. Example: `aws_health_abuse_report_sns_reinvent`
-1. Enter a **Display name**. Example: *abuse\_sns*
-1. Click on **Create topic**.
+3. Select **Create topic**.
+4. Enter a **Topic name**. Example: `aws_health_abuse_report_sns_reinvent`
+5. Enter a **Display name**. Example: *abuse\_sns*
+6. Click on **Create topic**.
 
     ![Create SNS topic](images/Step_1_6.png)
 
-1. Navigate to the Subscriptions tab.
-1. Click on **Create subscription**.
-1. Click on the **Protocol** drop-down and select **SMS**. You can select other protocols, such as HTTPS, and setup webhooks to forward Abuse notifications to systems used within your organization such as Slack, Jira, PagerDuty, etc.
-1. Enter a mobile number where you would like to receive SMSes about AWS Health Abuse events. Example: *1-206-555-0100*
-
-    <!--Note that SMS will be sent only for **US-based mobile numbers**. If you do not have one, please create an SNS subscription to your email ID.-->
-    
-1. Click on **Create subscription**.
-
+7. Navigate to the Subscriptions tab.
+8. Click on **Create subscription**.
+9. Click on the **Protocol** drop-down and select **SMS**. You can select other protocols such as E-mail or HTTPS, and setup webhooks to forward Abuse notifications to systems used within your organization such as Slack, Jira, PagerDuty, etc.
+10. Enter a mobile number where you would like to receive SMSes about AWS Health Abuse events. Example: *1-206-555-0100*
+11. Click on **Create subscription**.
 </p>
 </details>
 
@@ -51,18 +47,18 @@ In this step, we will be creating test EC2 instances that will be used to simula
 <p>
 	
 1. From the AWS Management Console, navigate to the **N. Virginia** (us-east-1) region.
-1. Navigate to the EC2 console by clicking on the **Services** drop-down, typing **EC2** in the search bar, and pressing Enter.
-1. Create 2 new EC2 instances with any configuration.
-2. Set below tags:
+2. Navigate to the EC2 console by clicking on the **Services** drop-down, typing **EC2** in the search bar, and pressing Enter.
+3. Create 2 new t2.nano EC2 instances with any configuration - we will not be logging into them, so you do not need to create a Keypair.
+4. Set the below tags:
  * Instance 1: Key=`Stage`; Value=`Dev`, signifying a non-Production EC2 instance.
  * Instance 2: Key=`Stage`; Value=`Prod`, signifying a Production EC2 instance.
 
 </p>
 </details>
 
-### Step 3 - Create AWS Lambda Function to Parse DoS Abuse Events
+### Step 3 - Create IAM Role and AWS Lambda Function to Parse DoS Abuse Events
 
-In this step, we will be creating a Lambda function to parse the AWS abuse event, publish a notification to the SNS topic created in Step 1, and stop/terminate the non-production EC2 instances that are reported as part of the Abuse event.
+In this step, we will be creating a Lambda function to parse the AWS abuse event, publish a notification to the SNS topic created in Step 1, and stop/terminate the non-production EC2 instances that are reported as part of the Abuse event. Before creating the Lambda function, we must create an IAM role that permits Lambda to publish to SNS and Stop or Terminate the offending EC2 instances.
 
 ![Solution](images/Step_3_Sol.png)
 
@@ -70,25 +66,15 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 <summary>**[ Click here for detailed steps ]**</summary>
 <p>
 
-1. Navigate to the AWS Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
-1. In the **Navigation** pane, click on **Functions**.
-1. Click on **Create function**.
-1. Let the selection remain on **Author from scratch**.
-1. Enter a **Name** for the Lambda function. Example: *aws\_health\_dos\_abuse\_report\_handler\_lambda\_reinvent*
-1. In the **Runtime** drop-down, select **Node.js 8.10**.
-1. In the **Role** drop-down, select **Create a custom role**.
-
-    ![Create Lambda function](images/Step_2_Lambda_Create.png)
-    
-1. In the **IAM role** drop-down, select **Create a new IAM role**.
-1. In the **Role name** text box, type *aws\_health\_dos\_lambda\_role\_reinvent*
-2. Click on **View Policy Document**.
-3. Click on **Edit**.
-1. Paste below policy. Be sure to replace <mark>\<\<aws\_accoun\_id\>\></mark> with your AWS account ID and <mark>\<\<SNS\_topic\_name\>\></mark> with the topic name you created as part of Step 1.
-
+1. Navigate to the AWS console, making sure to select the us-east-1 region.
+2. Click on Services and type in IAM to navigate to the IAM Management Console.
+3. To create a custom role for the Lambda function, click on Roles, then Create role.
+4. Select Lambda as the service that will be using this Role.
+5. Click Create Policy to define a custom policy.
+6. Select the JSON tab and paste the policy below. **Be sure to replace <<aws_account_id>> with your AWS account ID and <<SNS_topic_name>> with the topic name you created as part of Step 1**.
     ```
 	{
-		"Version": "2012-10-17",
+	    "Version": "2012-10-17",
 	    "Statement": [
 	        {
 	            "Action": [
@@ -121,9 +107,23 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	    ]
 	}
    ```
-1. Click on **Allow**.
-2. Click on **Create function**.
-3. Paste below code into the Lambda function.
+7. Click Review policy.
+8. Enter a name: "dos-report-lambda-policy" and click Create policy.
+9. Go back to the original IAM tab, click the refresh button and search for dos-report-lambda-policy.
+10. Select this policy and click Next: Tags.
+11. Tag the policy as needed, then click Next:Review.
+12. Enter a Role name "dos-report-lambda-role" and then click Create role.
+13. Navigate to the AWS Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
+14. In the **Navigation** pane, click on **Functions**.
+15. Click on **Create function**.
+16. Let the selection remain on **Author from scratch**.
+17. Enter a **Name** for the Lambda function. Example: *aws\_health\_dos\_abuse\_report\_handler\_lambda\_reinvent*
+18. In the **Runtime** drop-down, select **Node.js 8.10**.
+19. Under Permissions, select Use an existing role and choose the role created in step 12 (dos-report-lambda-policy).
+    ![Create Lambda function](images/Step_2_Lambda_Create.png)
+    
+20. Click on **Create function**.
+21. Paste the below code into the Lambda function.
 
     ```
 	// Sample Lambda Function to stop/terminate non-Prod EC2 instances that are
@@ -133,7 +133,7 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	var _ = require('lodash');
 	var sns = new AWS.SNS();
 	
-	// define configuration
+	// Define configuration
 	const snsTopic = process.env.SNSARN;
 	const tagKey = process.env.EC2_STAGE_TAG_KEY;
 	const tagValue = process.env.EC2_PROD_STAGE_TAG_VALUE;
@@ -141,19 +141,19 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	const dryRun = process.env.DRY_RUN;
 	
 	function setupClient(region) {
-	    // set the region for the sdk
+	    // Set the region for the sdk
 	    AWS.config.update({ region: region });
 	    //create the ec2 client
 	    return new AWS.EC2();
 	}
 	
 	function getParams(instances, dryRun) {
-	    // setup parameters
+	    // Setup parameters
 	    var instancesParams = {
 	        InstanceIds: instances,
 	        DryRun: false
 	    };
-	    // enable DryRun if set in environment variables
+	    // Enable DryRun if set in environment variables
 	    if (dryRun == 'true') {
 	        instancesParams.DryRun = true;
 	        console.log()
@@ -164,10 +164,10 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	// Main function which gets AWS Health data from CloudWatch event
 	exports.handler = (event, context, callback) => {
 	
-	    // function to handle ec2 API response
+	    // Function to handle EC2 API response
 	    function handleResponse(err, data) {
 	        if (err) {
-	            // an error occurred
+	            // An error occurred
 	            if (err.code == 'DryRunOperation') {
 	                console.log(instances, region, err.message);
 	                callback(null, awsHealthSuccessMessage);
@@ -179,7 +179,7 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	
 	        }
 	        else {
-	            // successful response
+	            // Successful response
 	            console.log(`Instance ${action}: `, instances, region);
 	
 	            snsPublishParams = {
@@ -198,12 +198,12 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	                }
 	            });
 	
-	            //return success
+	            // Return success
 	            callback(null, awsHealthSuccessMessage);
 	        }
 	    }
 	
-	    //extract details from CloudWatch event
+	    // Extract details from event
 	    var healthMessage = event.detail.eventDescription[0].latestDescription + ' Non-Prod EC2 instances part of DoS report will be attempted to be stopped/terminated. For more details, please see https://phd.aws.amazon.com/phd/home?region=us-east-1#/dashboard/open-issues';
 	    var eventName = event.detail.eventTypeCode;
 	    var affectedEntities = event.detail.affectedEntities;
@@ -211,7 +211,7 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	
 	    const awsHealthSuccessMessage = `Successfully parsed details from AWS Health event ${eventName}, and executed automated action.`;
 	
-	    //prepare message for SNS to publish
+	    // Prepare message for SNS to publish
 	    var snsPublishParams = {
 	        Message: healthMessage,
 	        Subject: eventName,
@@ -240,20 +240,20 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	    }
 	
 	    if (instances.length > 0) {
-	        //there are some instances to take action on
-	
-	        //create an ec2 api client in the event's region
+	        // There are some instances to take action on,
+	        // create an ec2 api client in the event's region
 	        var ec2 = setupClient(region);
 	
-	        // setup parameters
+	        // Setup parameters
 	        var instancesParams = getParams(instances, dryRun);
 	
-	        // DecsribeInstances that are associated with this event.
+	        // DescribeInstances that are associated with this event.
 	        ec2.describeInstances(instancesParams, function(err, data) {
 	            if (err) {
 	                console.log("Error", err.stack);
 	            }
 	            else {
+                        // Uncomment for debugs:
 	                //console.log("Success", JSON.stringify(data));
 	                var allInstancesDescribed = _.map(data.Reservations, function(reservation) { return reservation.Instances; });
 	                allInstancesDescribed = _.flatten(allInstancesDescribed);
@@ -295,22 +295,22 @@ In this step, we will be creating a Lambda function to parse the AWS abuse event
 	};
     ```
 
-1. Create following **Environment variable**:
+22. Create the following **Environment variables**:
  * Key=`SNSARN`; Value=`<<ARN_of_SNS_Topic>>`
  * Key=`DRY_RUN`; Value=`false`
  * Key=`EC2_ACTION`; Value=`Stop`
  * Key=`EC2_STAGE_TAG_KEY`; Value=`Stage`
  * Key=`EC2_PROD_STAGE_TAG_VALUE`; Value=`Prod`
 
-3. Under **Basic settings**, set **timeout** to `25` sec.
-4. Click on **Save** to save changes to the Lambda function.
+23. Under **Basic settings**, set **timeout** to `25` sec.
+24. Click on **Save** to save changes to the Lambda function.
 
 </p>
 </details>
 
-### Step 4 - Setup Amazon CloudWatch Events Rule and Target
+### Step 4 - Setup Amazon EventBridge Rule and Target
 
-In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse events and linking the Lambda function created in Step 3 as the target.
+In this step, we will be creating an Amazon EventBridge (formerly known as CloudWatch Events) rule to capture AWS Abuse events and linking the Lambda function created in Step 3 as the target.
 
 ![Solution](images/Step_4_Sol.png)
 
@@ -318,12 +318,12 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 <summary>**[ Click here for detailed steps ]**</summary>
 <p>
 
-1. Navigate to the Amazon CloudWatch console by clicking on the **Services** drop-down, typing **CloudWatch** in the search bar, and pressing Enter.
-2. In the **Navigation** pane, select **Rules**.
-3. Click on **Create rule**.
-4. Under **Event Pattern Preview**, click on **Edit**.
-5. Paste below rule.
-
+1. Navigate to the Amazon EventBridge console by clicking on the **Services** drop-down, typing **EventBridge** in the search bar, and pressing Enter.
+2. Click on **Rules**
+3. Click **Create rule**
+4. Enter aws_health_dos_report_cwe_rule_reinvent in the Name field.
+5. Under Define pattern, select **Event pattern**
+6. Select **Custom pattern** and paste the following pattern:
     ```
 	{
 	  "source": [
@@ -345,13 +345,9 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 	  }
 	}
     ```
-1. Click on **Save**.
-2. Under **Targets**, click on **Add target\***.
-3. Select the Lambda function created in Step 2.
-4. Click on **Configure details**.
-5. 	Enter **Name**. Example: *aws\_health\_dos\_report\_cwe\_rule\_reinvent*
-6. Click on **Create rule**.
-1. Create another CloudWatch Events rule that will capture capture a mock Health event. Name it *mock\_aws\_health\_dos\_report\_cwe\_rule\_reinvent*
+7. Under Select targets, choose Lambda Function and select the Lambda function you created in step 3.
+8. Keep everything else default and click Create.
+9. Create another EventBridge rule that will capture a mock Health event. Name it *mock\_aws\_health\_dos\_report\_cwe\_rule\_reinvent*
 
     ```
     {
@@ -383,77 +379,77 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 **Consider below options to test:**
 
 <details>
-<summary>**Option 1:** Test by triggering mock CloudWatch event through **AWS CLI**</summary><p>
+<summary>**Option 1:** Test using the Lambda Test feature</summary><p>
+
+1. Navigate to the Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
+2. Click on the Lambda function created in Step 3.
+3. Click on **Select a test event** drop-down next to the Test button and choose Configure test event.
+4. Select **Create new test event**.
+5. Enter **Event name**. Example: *dostest*
+6. Paste below input. Be sure to replace <mark>\<\<aws\_account\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID$
+
+    ```
+    {
+            "detail-type": "AWS Health Abuse Event",
+            "source": "awsmock.health",
+            "time": "2019-11-30T00:00:00Z",
+            "resources": [
+                "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>",
+                "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
+            ],
+            "detail": {
+                "eventArn": "arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34",
+                "service": "ABUSE",
+                "eventTypeCode": "AWS_ABUSE_DOS_REPORT",
+                "eventTypeCategory": "issue",
+                "startTime": "Sat, 30 Nov 2019 00:00:00 GMT",
+                "eventDescription": [
+                    {
+                        "language": "en_US",
+                        "latestDescription": "Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account."
+                    }
+                ],
+                "affectedEntities": [
+                    {
+                        "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>"
+                    },
+                    {
+                        "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
+                    }
+                ]
+            }
+        }
+    ```
+
+7. Click on **Create**.
+8. Ensure that *testdos* test event is selected in the drop-down. Click on **Test**.
+</p></details>
+
+<details>
+<summary>**Option 2:** Test by triggering mock CloudWatch event through **AWS CLI**</summary><p>
 
 **Prerequisite:** You need to have the **AWS CLI** installed. Installation instructions can be found [here](https://docs.aws.amazon.com/cli/latest/userguide/installing.html).
 
-1. Create a file named *mockpayload.json* with below contents. Be sure to replace <mark>\<\<aws\_accoun\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID of the instances you created as part of Step 2.
+1. Create a file named *mockpayload.json* with below contents. Be sure to replace <mark>\<\<aws\_account\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID of the instances you created as part of Step 2.
 
     ```
     [
 	    {
 	        "DetailType": "AWS Health Abuse Event",
 	        "Source": "awsmock.health",
-	        "Time": "2018-11-26T10:00:00Z",
+	        "Time": "2019-11-30T00:00:00Z",
 	        "Resources": [
 	            "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>",
 	            "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
 	        ],
-	        "Detail": "{\"eventArn\": \"arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34\",\"service\": \"ABUSE\",\"eventTypeCode\": \"AWS_ABUSE_DOS_REPORT\",\"eventTypeCategory\": \"issue\",\"startTime\": \"Mon, 26 Nov 2018 10:00:00 GMT\",\"eventDescription\": [{\"language\": \"en_US\",\"latestDescription\": \"Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account.\"}],\"affectedEntities\": [{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>\"},{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>\"}]}"
+	        "Detail": "{\"eventArn\": \"arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34\",\"service\": \"ABUSE\",\"eventTypeCode\": \"AWS_ABUSE_DOS_REPORT\",\"eventTypeCategory\": \"issue\",\"startTime\": \"Sat, 30 Nov 2019 00:00:00 GMT\",\"eventDescription\": [{\"language\": \"en_US\",\"latestDescription\": \"Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account.\"}],\"affectedEntities\": [{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>\"},{\"entityValue\": \"arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>\"}]}"
 		}
 	]
     ```
-1. Run the following command in your terminal.
+2. Run the following command in your terminal.
     
     `aws events put-events --entries file://mockpayload.json --region us-east-1`
     
-</p></details>
-
-<details>
-<summary>**Option 2:** Test using Lambda Test feature</summary><p>
-
-1. Navigate to the Lambda console by clicking on the **Services** drop-down, typing **Lambda** in the search bar, and pressing Enter.
-2. Click on the Lambda function created in Step 3.
-3. Click on **Select a test event** drop-down next to the Test button.
-4. Select **Create new test event**.
-5. Enter **Event name**. Example: *testebs*
-6. Paste below input. Be sure to replace <mark>\<\<aws\_accoun\_id\>\></mark> with your AWS account ID and <mark>\<\<Instance\_ID\>\></mark> with the ID of the instances you created as part of Step 2.
-
-    ```
-    {
-	    "detail-type": "AWS Health Abuse Event",
-	    "source": "awsmock.health",
-	    "time": "2018-11-26T10:00:00Z",
-	    "resources": [
-	        "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>",
-	        "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
-	    ],
-	    "detail": {
-	        "eventArn": "arn:aws:health:global::event/AWS_ABUSE_DOS_REPORT_3223324344_3243_234_34_34",
-	        "service": "ABUSE",
-	        "eventTypeCode": "AWS_ABUSE_DOS_REPORT",
-	        "eventTypeCategory": "issue",
-	        "startTime": "Mon, 26 Nov 2018 10:00:00 GMT",
-	        "eventDescription": [
-	            {
-	                "language": "en_US",
-	                "latestDescription": "Denial of Service (DOS) attack has been reported to have been caused by AWS resources in your account."
-	            }
-	        ],
-	        "affectedEntities": [
-	            {
-	                "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_1>>"
-	            },
-	            {
-	                "entityValue": "arn:aws:ec2:us-east-1:<<aws_account_id>>:instance/<<Instance_ID_2>>"
-	            }
-	        ]
-	    }
-	}
-    ```
-
-1. Click on **Create**.
-2. Ensure that *testebs* test event is selected in the drop-down. Click on **Test**.
 
 </p></details>
 
@@ -467,7 +463,7 @@ In this step, we will be creating a CloudWatch Events rule to capture AWS Abuse 
 
 AWS Health supports notifying customers about sensitive events such as those related to Abuse, exposed credentials, compromised accounts, etc. If you have a need to control access to such events, use the IAM fine-grained access control available with AWS Health API / Personal Health Dashboard and CloudWatch Events.
 
-Sample CloudWatch Events policy to deny access to create rules that capture Abuse events:
+Sample Amazon EventBridge  policy to deny access to create rules that capture Abuse events:
 
 ```
 {
