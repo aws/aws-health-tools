@@ -47,7 +47,7 @@ Parameters:
   RegionFilter:
     Description: Array of regions of interest used to filter events
     Type: String
-    Default: "{}"
+    Default: "[]"
 Conditions:
   CreateSNSResources: !Equals [ !Ref ChatClient, sns ]
 Resources:
