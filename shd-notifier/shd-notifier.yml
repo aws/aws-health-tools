@@ -1,0 +1,297 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  AppName:
+    Description: SHD Health Event Application
+    Type: String
+    Default: Health-Event
+  ChatClient:
+    Description: Which notification client to use
+    Type: String
+    Default: chime
+    AllowedValues:
+      - chime
+      - slack
+      - sns
+  MessagePrefix:
+    Description: Prefix for chat messages
+    Type: String
+    Default: "[SHD AUTO]"
+  EndpointArray:
+    Description: Array of Webhook/endpoints for the selected notification client
+    Type: String
+  Bail:
+    Description: Skip delivery of messages with no updates
+    Type: Number
+    Default: 1
+    AllowedValues:
+      - 0
+      - 1
+  DEBUG:
+    Description: Enable Debugging
+    Type: Number
+    Default: 0
+    AllowedValues:
+        - 0
+        - 1
+  LambdaRate:
+    Description: >
+      The rate (frequency) that determines when CloudWatch Events runs the rule that
+      triggers the Lambda function.
+    Default: rate(1 minute)
+    AllowedValues:
+      - rate(1 minute)
+      - rate(5 minutes)
+      - rate(10 minutes)
+    Type: String
+  RegionFilter:
+    Description: Array of regions of interest used to filter events
+    Type: String
+    Default: "{}"
+Conditions:
+  CreateSNSResources: !Equals [ !Ref ChatClient, sns ]
+Resources:
+  LambdaSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Schedule to poll for SHD Events
+      ScheduleExpression: !Ref LambdaRate
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EventPoller.Arn
+          Id: LambdaSchedule
+  LambdaSchedulePermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Sub ${EventPoller.Arn}
+      Principal: 'events.amazonaws.com'
+      SourceArn: !Sub ${LambdaSchedule.Arn}
+  StatesExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      Policies:
+        - PolicyName: StatesExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: "*"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: "sts:AssumeRole"
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: LambdaHealthPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "health:Describe*"
+                Resource: "*"
+        - PolicyName: LambdaSNSPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "SNS:Publish"
+                Resource: "*"
+        - PolicyName: LambdaStatesPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "states:StartExecution"
+                Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  PostFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Posts messages to chime, slack or sns topics
+      FunctionName: !Sub ${AppName}-Chat-Post
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt "LambdaRole.Arn"
+      Runtime: python3.7
+      Timeout: 30
+      Environment:
+        Variables:
+          DEBUG: !Ref DEBUG
+          MESSAGEPREFIX: !Ref MessagePrefix
+          CHATCLIENT: !Ref ChatClient
+          ENDPOINTARRAY: !Ref EndpointArray
+          BAIL_NOCHANGE: !Ref Bail
+      Code:
+        ZipFile: |
+          import os
+          def lambda_handler(event):
+              print("coming soon")
+
+  EventPoller:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Polls SHD for new events
+      FunctionName: !Sub ${AppName}-Poller
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: 30
+      Environment:
+        Variables:
+          SFN_ARN: !Ref SHDChecker
+          DEBUG: !Ref DEBUG
+          REGION_FILTER: !Ref RegionFilter
+      Code:
+        ZipFile: |
+          import os
+          def lambda_handler(event):
+              print("coming soon")
+  EventStatusFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Gets the current status of a SHD event
+      FunctionName: !Sub ${AppName}-Status
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import os
+          def lambda_handler(event):
+              print("coming soon")
+  IteratorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Counter to decide when the health check sfn should finish
+      FunctionName: !Sub ${AppName}-Iterator
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import os
+          def lambda_handler(event):
+              print("coming soon")
+  SHDChecker:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      DefinitionString: !Sub
+        - |-
+          {
+            "Comment": "A state machine that monitors open AWS health issues and posts them every 15 minutes until they are closed. When closed it sends one last final closed post.",
+            "StartAt": "Post Event Status",
+            "States": {
+              "Post Event Status": {
+                "Type": "Task",
+                "Resource": "${postFunction}",
+                "ResultPath": "$.lastUpdatedTime",
+                "Next": "Wait 60 Seconds",
+                "Retry": [
+                  {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "Wait 60 Seconds": {
+                "Type": "Wait",
+                  "Seconds": 60,
+                  "Next": "Get Event Status"
+              },
+              "Get Event Status": {
+                "Type": "Task",
+                "Resource": "${eventStatusFunction}",
+                "Next": "Event Complete?",
+                "ResultPath": "$.status",
+                "Retry": [
+                  {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "Event Complete?": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.status",
+                    "StringEquals": "closed",
+                    "Next": "Post Final Event Status"
+                  }
+                ],
+                "Default": "Iterator"
+              },
+              "Iterator": {
+                "Type": "Task",
+                "Resource": "${iteratorFunction}",
+                "Next": "Time to post again?",
+                "ResultPath": "$.count",
+                "Retry": [
+                  {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ]
+              },
+              "Time to post again?": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.count",
+                    "NumericEquals": 0,
+                    "Next": "Post Event Status"
+                  }
+                ],
+                "Default": "Wait 60 Seconds"
+              },
+              "Post Final Event Status": {
+                "Type": "Task",
+                "Resource": "${postFunction}",
+                "End": true,
+                "Retry": [
+                  {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                  }
+                ]
+              }
+            }
+          }
+        - postFunction: !GetAtt PostFunction.Arn
+          eventStatusFunction: !GetAtt EventStatusFunction.Arn
+          iteratorFunction: !GetAtt IteratorFunction.Arn
+      RoleArn: !GetAtt StatesExecutionRole.Arn
