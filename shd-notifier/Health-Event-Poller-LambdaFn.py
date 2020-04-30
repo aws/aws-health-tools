@@ -40,7 +40,7 @@ else:
 WAIT_TIME= int(os.getenv('WAIT_TIME',defWaitTime))
 logger.debug("WAIT_TIME= %i" % WAIT_TIME) 
 try:
-  REGION_FILTER= str(os.getenv('REGION_FILTER', '{}'))
+  REGION_FILTER= str(os.getenv('REGION_FILTER', '[]'))
   logger.debug("REGION_FILTER= %s" % REGION_FILTER)
   REGION_FILTER=json.loads(REGION_FILTER)
 except Exception as e:
