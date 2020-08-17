@@ -17,6 +17,7 @@ Setup and usage instructions are present for each tool in its respective directo
 [AWS Health event Direct Connect maintenance notifier](dx-maintenance-notifier/) <br />
 [AWS Health Abuse event DOS report notifier](dos-report-notifier/) <br />
 [AWS Health SHD event Chime/Slack/SNS notifier](shd-notifier/) <br />
+[AWS Health Organizational View Alerts](https://github.com/aws-samples/aws-health-organizational-view-alerts) <br />
 #### Automated Actions:
 [AWS Codepipeline disable stage transition triggered when AWS Health issue event generated](automated-actions/AWS_Codepipeline_Disable_Stage_Transition/) <br />
 [AWS Health AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED triggers automated EC2 Instance stop or terminate](automated-actions/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED/) <br />
