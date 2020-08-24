@@ -81,7 +81,7 @@ def chatMessage(message, subject, webhook, type):
     logger.info(str(chat_message))
     # post the message, catch and log any errors
     header = {'Content-type': 'application/json'}
-    req = Request(webhook, json.dumps(chat_message), header)
+    req = Request(webhook, json.dumps(chat_message).encode('utf8'), header)
     try:
         response = urlopen(req)
         response.read()
