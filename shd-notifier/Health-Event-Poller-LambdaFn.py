@@ -86,6 +86,10 @@ def lambda_handler(event, context):
     stepClient = boto3.client('stepfunctions')
     # for every open issue, lets execute a state machine
     for issue in open_issues:
+      # Skip events that are not PUBLIC events that appear on the SHD (i.e. Account specific events)
+      if issue['eventScopeCode'] != 'PUBLIC':
+        logger.info("Non-public issue not on SHD, skipping: %s" % (issue['arn']))
+        continue
       logger.info("Starting Step Function for issue: %s" % (issue['arn']))
       # Execute state machine pass in the issues ARN and the WAIT_TIME
       input_str="{\"eventArn\":\"%s\",\"maxCount\": %i}" % (issue['arn'],WAIT_TIME)
