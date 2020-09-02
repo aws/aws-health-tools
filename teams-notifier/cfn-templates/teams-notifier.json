@@ -1,0 +1,128 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "HookURL": {
+            "Type": "String",
+            "Description": "Please enter the web hook url from Teams:",
+            "NoEcho": true
+        }
+    },
+    "Resources": {
+        "LambdaFunctionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/"
+            }
+        },
+        "LambdaRolePolicies": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "LambdaPolicy",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "Stmt12349896368829",
+                            "Action": [
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": "arn:aws:logs:*:*:*"
+                        }
+                    ]
+                },
+                "Roles": [
+                    {
+                        "Ref": "LambdaFunctionRole"
+                    }
+                ]
+            }
+        },
+        "TeamsNotifierLambdaFn": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaFunctionRole",
+                        "Arn"
+                    ]
+                },
+                "Environment": {
+                    "Variables": {
+                        "TEAMSWEBHOOK": {
+                            "Ref": "HookURL"
+                        }
+                    }
+                },
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Sub": "#Sample Lambda Function to post notifications to a Teams room when an AWS Health event happens\nimport json \nimport logging \nimport os \nfrom urllib.request import Request, urlopen\nfrom urllib.error import URLError, HTTPError \n# Setting up logging \nlogger = logging.getLogger() \nlogger.setLevel(logging.INFO) \n# main function \ndef lambda_handler(event, context): \n  message =  str(event['detail']['eventDescription'][0]['latestDescription']  + \" https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=\" + event['detail']['eventArn'])\n  json.dumps(message) \n  teams_message = {\"@context\": \"https://schema.org/extensions\",\"@type\": \"MessageCard\",\"title\": \"AWS - Personal Health Update\",\"text\": message} \n  logger.info(str(teams_message))\n  req = Request(TEAMSWEBHOOK, json.dumps(teams_message).encode('utf-8')) \n  try: \n    response = urlopen(req) \n    response.read() \n    logger.info(\"Message posted\") \n    return {\"status\": \"200 OK\"} \n  except HTTPError as e: \n    logger.error(\"Request failed : %d %s\", e.code, e.reason) \n  except URLError as e: \n    logger.error(\"Server connection failed: %s\", e.reason)       \n"
+                    }
+                },
+                "Runtime": "python3.7",
+                "Timeout": "60"
+            }
+        },
+        "LambdaInvokePermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "TeamsNotifierLambdaFn",
+                        "Arn"
+                    ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "CloudWatchEventRule",
+                        "Arn"
+                    ]
+                }
+            }
+        },
+        "CloudWatchEventRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "EventRule",
+                "EventPattern": {
+                    "source": [
+                        "aws.health"
+                    ]
+                },
+                "State": "ENABLED",
+                "Targets": [
+                    {
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "TeamsNotifierLambdaFn",
+                                "Arn"
+                            ]
+                        },
+                        "Id": "TeamsNotifierLambdaFn"
+                    }
+                ]
+            }
+        }
+    }
+}
