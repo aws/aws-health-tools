@@ -5,7 +5,7 @@ This repository contains sample code for using the AWS Health API's high availab
 
 ## Background
 
-AWS Health is a RESTful web service that uses HTTPS as a transport and JSON as a message serialization format. Your application code can make requests directly to the AWS Health API. When using the REST API directly, you must write the necessary code to sign and authenticate your requests. For more information, see the [AWS Health API Reference](https://alpha-docs-aws.amazon.com/health/latest/APIReference/).
+AWS Health is a RESTful web service that uses HTTPS as a transport and JSON as a message serialization format. Your application code can make requests directly to the AWS Health API. When using the REST API directly, you must write the necessary code to sign and authenticate your requests. For more information, see the [AWS Health API Reference](https://docs.aws.amazon.com/health/latest/APIReference/).
 
 **NOTE**: You must have a Business or Enterprise support plan from [AWS Support](http://aws.amazon.com/premiumsupport/) to use the AWS Health API. If you call the AWS Health API from an AWS account that doesn't have a Business or Enterprise support plan, you receive a ```SubscriptionRequiredException``` error. 
 
