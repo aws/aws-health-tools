@@ -24,6 +24,8 @@ Setup and usage instructions are present for each tool in its respective directo
 [AWS Health AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED triggers freeing up of unused ENIs](automated-actions/AWS_ELASTICLOADBALANCING_ENI_LIMIT_REACHED/) <br />
 [AWS Health AWS_RISK_CREDENTIALS_EXPOSED remediation](automated-actions/AWS_RISK_CREDENTIALS_EXPOSED/) <br />
 [AWS Health AWS_EBS_VOLUME_LOST Remediation](automated-actions/AWS_EBS_VOLUME_LOST/) <br />
+#### Demos:
+[AWS Health API high availability endpoint](high-availability-endpoint/) <br />
 
 ![Architecture](images/AWSHealthToolsArchitecture.jpg)
 
