@@ -1,0 +1,12 @@
+# java demo
+java/.gradle/
+java/build
+java/buildSrc/build/
+java/gradle/
+java/gradlew
+java/gradlew.bat
+java/wrapper/
+
+# python demo
+python/v-aws-health-env
+python/__pycache__

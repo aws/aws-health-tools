@@ -1,0 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+boto3 > 1.15
+dnspython >= 2.0.0
