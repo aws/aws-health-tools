@@ -9,6 +9,9 @@ More information about AWS Health and Personal Health Dashboard (PHD) is availab
 
 Setup and usage instructions are present for each tool in its respective directory: <br />
 
+#### Solutions:
+[AWS Health Aware (AHA) is an automated notification solution for sending well-formatted AWS Health Alerts across accounts and regions](https://github.com/aws-samples/aws-health-aware/) <br />
+
 #### Custom Notifications:
 [AWS Health event SMS notifier](sms-notifier/) <br />
 [AWS Health event Chime notifier](chime-notifier/) <br />
