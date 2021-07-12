@@ -1,0 +1,34 @@
+{
+  "version": "0",
+  "id": "7bf73129-1428-4cd3-a780-95db273d1602",
+  "detail-type": "AWS Health Event",
+  "source": "aws.health",
+  "account": "123456789012",
+  "time": "2016-06-05T06:27:57Z",
+  "region": "us-west-2",
+  "resources": [
+    "i-abcd1111"
+  ],
+  "detail": {
+    "eventArn": "arn:aws:health:us-west-2::event/AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED_90353408594353980",
+    "service": "EC2",
+    "eventTypeCode": "AWS_EC2_INSTANCE_STORE_DRIVE_PERFORMANCE_DEGRADED",
+    "eventTypeCategory": "issue",
+    "startTime": "Sat, 05 Jun 2016 15:10:09 GMT",
+    "eventDescription": [
+      {
+        "language": "en_US",
+        "latestDescription": "A description of the event will be provided here"
+      }
+    ],
+    "affectedEntities": [
+      {
+        "entityValue": "i-abcd1111",
+        "tags": {
+          "stage": "prod",
+          "app": "my-app"
+        }
+      }
+    ]
+  }
+}
