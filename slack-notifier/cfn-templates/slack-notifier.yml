@@ -1,5 +1,7 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
+Description:
+  AWS Health Slack Notifier
 Parameters:
   SlackChannel:
     Type: String
