@@ -7,7 +7,7 @@ REGION=$2
 PROFILE=$3
 if [ $# -lt 3 ]; then
   echo 1>&2 "$0: not enough arguments."
-  echo 1>&2 "Usage: $0 <CF_APPNAME> <REGION>"
+  echo 1>&2 "Usage: $0 <CF_APPNAME> <REGION> <PROFILE>"
   echo 1>&2 "  CF_APPNAME: The name of the deployed CloudFormation template to update"
   echo 1>&2 "  REGION: The region of the deployed CloudFormation template"
   echo 1>&2 "  PROFILE: The profile to run aws-cli's"
