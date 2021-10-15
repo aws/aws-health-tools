@@ -10,7 +10,7 @@ if [ $# -lt 3 ]; then
   echo 1>&2 "Usage: $0 <CF_APPNAME> <REGION> <PROFILE>"
   echo 1>&2 "  CF_APPNAME: The name of the deployed CloudFormation template to update"
   echo 1>&2 "  REGION: The region of the deployed CloudFormation template"
-  echo 1>&2 "  PROFILE: The profile to run aws-cli's"
+  echo 1>&2 "  PROFILE: The profile to be used with the aws CLI"
   exit 2
 fi
 createOrUpdate () {

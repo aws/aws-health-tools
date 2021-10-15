@@ -55,6 +55,7 @@ Due to the CloudFormation limit on inline Lambda functions, after the CloudForma
 Syntax: **deploy.sh** _\<CF_APPNAME\>_ _\<REGION\>_ _\<PROFILE\>_<br/>
   - *CF_APPNAME* = The *AppName* defined when deploying the CloudFormation template
   - *REGION* = The region of the deployed CloudFormation template 
+  - *PROFILE* = The profile to be used with the aws CLI
  
 ### License
 AWS Health Tools are licensed under the Apache 2.0 License.
