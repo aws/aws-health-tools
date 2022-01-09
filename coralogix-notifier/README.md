@@ -8,7 +8,6 @@ This tool can be used to send logs to Coralogix endpoints when an AWS Health eve
 
 Choose **Launch Stack** to launch the template in the US East (N. Virginia) Region in your account:
 
-!!!! update this url !!!!
 [![Launch AWS Health Coralogix Notifier](../images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=CoralogixNotifier&templateURL=https://aws-health-tools-assets.s3.amazonaws.com/cloudformation-templates/coralogix-notifier.json)
 
 The CloudFormation template requires the following parameters:
