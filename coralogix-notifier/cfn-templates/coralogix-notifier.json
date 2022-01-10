@@ -70,7 +70,7 @@
         "CoralogixNotifierLambda": {
             "Type": "AWS::Lambda::Function",
             "Properties": {
-                "Handler": "LambdaFunction.lambda_handler",
+                "Handler": "index.lambda_handler",
                 "Role": {
                     "Fn::GetAtt": [
                         "CxNotifierLambdaRole",
