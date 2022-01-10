@@ -18,6 +18,7 @@ Setup and usage instructions are present for each tool in its respective directo
 [AWS Health event Amazon Simple Notification Service (SNS) Topic Publisher](sns-topic-publisher/) <br />
 [AWS Health event Slack notifier](slack-notifier/) <br />
 [AWS Health event Direct Connect maintenance notifier](dx-maintenance-notifier/) <br />
+[AWS Health event Coralogix notifier](coralogix-notifier/) <br />
 [AWS Health Abuse event DOS report notifier](dos-report-notifier/) <br />
 [AWS Health SHD event Chime/Slack/SNS notifier](shd-notifier/) <br />
 [AWS Health Organizational View Alerts](https://github.com/aws-samples/aws-health-organizational-view-alerts) <br />

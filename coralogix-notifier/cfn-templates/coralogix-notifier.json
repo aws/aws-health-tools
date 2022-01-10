@@ -1,0 +1,154 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "CoralogixLogURL": {
+            "Type": "String",
+            "Description": "Please enter the Coralogix log URL endpoint:"
+        },
+        "PrivateKey": {
+            "Type": "String",
+            "Description": "A private key which is used to validate your authenticity\nPlease enter your private key:"
+        },
+        "AppName": {
+            "Type": "String",
+            "Description": "The name of your main application\nPlease enter your app name:"
+        },
+        "SubSystem": {
+            "Type": "String",
+            "Description": "Your application probably has multiple subsystems\nPlease enter your sub system name:"
+        }
+    },
+    "Resources": {
+        "CxNotifierLambdaRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/"
+            }
+        },
+        "CxLambdaRolePolicies": {
+            "Type": "AWS::IAM::Policy",
+            "Properties": {
+                "PolicyName": "LambdaPolicy",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "Stmt12349896368829",
+                            "Action": [
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": "arn:aws:logs:*:*:*"
+                        }
+                    ]
+                },
+                "Roles": [
+                    {
+                        "Ref": "CxNotifierLambdaRole"
+                    }
+                ]
+            }
+        },
+        "CoralogixNotifierLambda": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "CxNotifierLambdaRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Sub": "# Sample Lambda Function to post notifications to a slack channel when an AWS Health event happens\nimport os\nimport time\nimport logging\nimport json\nimport urllib.error\nfrom urllib.request import Request, urlopen\n\nCORALOGIX_LOG_URL = os.getenv('CORALOGIX_LOG_URL')\nPRIVATE_KEY = os.getenv('PRIVATE_KEY')\nAPP_NAME = os.getenv('APP_NAME')\nSUB_SYSTEM = os.getenv('SUB_SYSTEM')\n\nWARN = 4\nTIMEOUT = os.getenv('CORALOGIX_TIMEOUT_HTTP', 30)\nRETRIES = os.getenv('CORALOGIX_RETRIES_HTTP', 2)\n\nlogger = logging.getLogger()\nlogger.setLevel(logging.INFO)\n\ndef lambda_handler(event, context):\n    message = {\n        \"privateKey\": str(PRIVATE_KEY),\n        \"applicationName\": str(APP_NAME),\n        \"subsystemName\": str(SUB_SYSTEM),\n        \"logEntries\": [{\"timestamp\": (time.time() * 1000), \"severity\": WARN, \"text\": event}]\n    }\n    jsondata = json.dumps(message).encode('utf-8')\n    for attempt in range(int(RETRIES)):\n        try:\n            req = Request(CORALOGIX_LOG_URL)\n            req.add_header('Content-Type', 'application/json; charset=utf-8')\n            req.add_header('Content-Length', len(jsondata))\n            response = urlopen(req, data=jsondata,timeout=TIMEOUT)\n            if response.getcode() == 200:\n                logger.info(\"Health log published to Coralogix successfully 200 OK\")\n                return True\n            else:\n                logger.error(\"health log publish failed, status code %d, %b\", response.getcode(), response.read)\n        except urllib.error.URLError as e:\n            logger.error(\"URL Error %s\", e)\n        except urllib.error.HTTPError as e:\n            logger.error(\"HTTP Error %s\", e)\n        logger.info(\"attempt number %d\", attempt + 1)\n        time.sleep(5)\n"
+                    }
+                },
+                "Environment": {
+                    "Variables": {
+                        "CORALOGIX_LOG_URL": {
+                            "Ref": "CoralogixLogURL"
+                        },
+                        "PRIVATE_KEY": {
+                            "Ref": "PrivateKey"
+                        },
+                        "APP_NAME": {
+                            "Ref": "AppName"
+                        },
+                        "SUB_SYSTEM": {
+                            "Ref": "SubSystem"
+                        }
+                    }
+                },
+                "Tags": [
+                    {
+                        "Key": "coralogix.com/monitor",
+                        "Value": "true"
+                    }
+                ],
+                "Runtime": "python3.8",
+                "Timeout": "60"
+            }
+        },
+        "CxLambdaInvokePermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "CoralogixNotifierLambda",
+                        "Arn"
+                    ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "CloudWatchRuleHealth",
+                        "Arn"
+                    ]
+                }
+            }
+        },
+        "CloudWatchRuleHealth": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "EventRule for Coralogix",
+                "EventPattern": {
+                    "source": [
+                        "aws.health"
+                    ]
+                },
+                "State": "ENABLED",
+                "Targets": [
+                    {
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "CoralogixNotifierLambda",
+                                "Arn"
+                            ]
+                        },
+                        "Id": "CoralogixNotifierLambda"
+                    }
+                ]
+            }
+        }
+    }
+}
