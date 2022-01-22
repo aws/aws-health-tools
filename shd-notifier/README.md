@@ -50,6 +50,11 @@ The CloudFormation template requires the following parameters:
   - 0 (Disable Debugging)
   - 1 (Enable debugging)
 
+- **WaitSeconds** - Control State Machine wait period of state transition. Allowed values:
+  - 60 (1 minutes - Allows Standard State machine to run for 2.5 days)
+  - 300 (5 minutes - Allows Standard State machine to run for 12.5 days)
+  - 600 (10 minutes - Allows Standard State machine to run for 25 days)
+
 #### Post-CloudFormation Installation Step
 Due to the CloudFormation limit on inline Lambda functions, after the CloudFormation stack has completed successfully, the **deploy.sh** script will need to be run to update the code for the Lambda functions. <br />
 Syntax: **deploy.sh** _\<CF_APPNAME\>_ _\<REGION\>_ <br/>
