@@ -48,6 +48,16 @@ Parameters:
     Description: Array of regions of interest used to filter events
     Type: String
     Default: "[]"
+  WaitSeconds:
+    Description: >
+      The rate (frequency) in seconds that determines State Machine waits before checking Event status again.
+      Longer wait allows State Machine to run for long duration
+    Type: Number
+    Default: 60
+    AllowedValues:
+      - 60
+      - 300
+      - 600
 Conditions:
   CreateSNSResources: !Equals [ !Ref ChatClient, sns ]
 Resources:
@@ -204,14 +214,14 @@ Resources:
       DefinitionString: !Sub
         - |-
           {
-            "Comment": "A state machine that monitors open AWS health issues and posts them every 15 minutes until they are closed. When closed it sends one last final closed post.",
+            "Comment": "A state machine that monitors open AWS health issues and posts them regularly until they are closed. When closed it sends one last final closed post.",
             "StartAt": "Post Event Status",
             "States": {
               "Post Event Status": {
                 "Type": "Task",
                 "Resource": "${postFunction}",
                 "ResultPath": "$.lastUpdatedTime",
-                "Next": "Wait 60 Seconds",
+                "Next": "Wait ${waitSeconds} Seconds",
                 "Retry": [
                   {
                     "ErrorEquals": ["States.ALL"],
@@ -221,9 +231,9 @@ Resources:
                   }
                 ]
               },
-              "Wait 60 Seconds": {
+              "Wait ${waitSeconds} Seconds": {
                 "Type": "Wait",
-                  "Seconds": 60,
+                  "Seconds": ${waitSeconds},
                   "Next": "Get Event Status"
               },
               "Get Event Status": {
@@ -274,7 +284,7 @@ Resources:
                     "Next": "Post Event Status"
                   }
                 ],
-                "Default": "Wait 60 Seconds"
+                "Default": "Wait ${waitSeconds} Seconds"
               },
               "Post Final Event Status": {
                 "Type": "Task",
@@ -292,6 +302,7 @@ Resources:
             }
           }
         - postFunction: !GetAtt PostFunction.Arn
+          waitSeconds: !Ref WaitSeconds
           eventStatusFunction: !GetAtt EventStatusFunction.Arn
           iteratorFunction: !GetAtt IteratorFunction.Arn
       RoleArn: !GetAtt StatesExecutionRole.Arn
