@@ -4,11 +4,13 @@
 set -e
 APPNAME=$1
 REGION=$2
-if [ $# -lt 2 ]; then
+PROFILE=$3
+if [ $# -lt 3 ]; then
   echo 1>&2 "$0: not enough arguments."
-  echo 1>&2 "Usage: $0 <CF_APPNAME> <REGION>"
+  echo 1>&2 "Usage: $0 <CF_APPNAME> <REGION> <PROFILE>"
   echo 1>&2 "  CF_APPNAME: The name of the deployed CloudFormation template to update"
   echo 1>&2 "  REGION: The region of the deployed CloudFormation template"
+  echo 1>&2 "  PROFILE: The profile to be used with the aws CLI"
   exit 2
 fi
 createOrUpdate () {
@@ -16,7 +18,7 @@ createOrUpdate () {
     SOURCE=$2
     cp "$SOURCE" index.py
     zip "$FUNC_NAME.zip" index.py
-    aws lambda update-function-code --function-name "$FUNC_NAME" --zip-file "fileb://$FUNC_NAME.zip" --region "$REGION"
+    aws lambda update-function-code --function-name "$FUNC_NAME" --zip-file "fileb://$FUNC_NAME.zip" --region "$REGION" --profile "$PROFILE"
     rm "$FUNC_NAME.zip"
     rm index.py
 }
