@@ -108,8 +108,8 @@ Resources:
                 entities = event.get("detail", {}).get("affectedEntities")
                 resources = event.get("resources")
                 if(type(entities) == list and type(resources) == list and sorted(list(map(lambda x: x["entityValue"], entities)))  == sorted(resources) ):
-                    del event["detail"]["affectedEntities"]
-                    del event["resources"]
+                    event["detail"].pop("affectedEntities", None)
+                    event.pop("resources", None)
                     for entity in entities:
                         event["detail"]["affectedEntity"] = entity
                         event["resource"] = entity.get("entityValue")
