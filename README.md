@@ -1,13 +1,17 @@
-## AWS Health Tools 
+## AWS Health Tools
 
 ### Description
 The samples provided in AWS Health Tools can help you build automation and customized alerts in response to AWS Health events.
 
-AWS Health provides ongoing visibility into the state of your AWS resources, services, and accounts. The service gives you awareness and remediation guidance for resource performance or availability issues that may affect your applications that run on AWS. AWS Health provides relevant and timely information to help you manage events in progress, as well as be aware of and prepare for planned activities. The service delivers alerts and notifications triggered by changes in the health of AWS resources, so you get near-instant event visibility and guidance to help accelerate troubleshooting. 
+AWS Health provides ongoing visibility into the state of your AWS resources, services, and accounts. The service gives you awareness and remediation guidance for resource performance or availability issues that may affect your applications that run on AWS. AWS Health provides relevant and timely information to help you manage events in progress, as well as be aware of and prepare for planned activities. The service delivers alerts and notifications triggered by changes in the health of AWS resources, so you get near-instant event visibility and guidance to help accelerate troubleshooting.
 
 More information about AWS Health and Personal Health Dashboard (PHD) is available here: http://docs.aws.amazon.com/health/latest/ug/what-is-aws-health.html
 
+> NOTE: To get notifications about public events (global events that are not tied to your account), you must have a Business or Enterprise support plan from AWS Support. If you call the AWS Health API from an AWS account that doesn't have a Business or Enterprise support plan, you receive a SubscriptionRequiredException error.
+
 Setup and usage instructions are present for each tool in its respective directory: <br />
+
+
 
 #### Solutions:
 [AWS Health Aware (AHA) - automated notification solution for sending well-formatted AWS Health Alerts across accounts and regions](https://github.com/aws-samples/aws-health-aware/) <br />
