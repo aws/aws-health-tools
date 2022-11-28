@@ -73,7 +73,7 @@ Resources:
                 json.dumps(decoded_message)
                 slack_message = {
                   "channel": "${SlackChannel}",
-                  "text": message,
+                  "text": decoded_message,
                   "username": "AWS - Personal Health Updates"
                 }
                 logger.info(str(slack_message))
