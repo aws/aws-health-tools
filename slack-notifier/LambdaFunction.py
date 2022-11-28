@@ -37,10 +37,11 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     message =  str(event['detail']['eventDescription'][0]['latestDescription']  + "\n\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=" + event['detail']['eventArn'] + "|Click here> for details.")
-    json.dumps(message)
+    decoded_message = bytes(message, "utf-8").decode("unicode_escape")
+    json.dumps(decoded_message)
     slack_message = {
         'channel': SLACK_CHANNEL,
-        'text': message
+        'text': decoded_message
     }
     logger.info(str(slack_message))
     

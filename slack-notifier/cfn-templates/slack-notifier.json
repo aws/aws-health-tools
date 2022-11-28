@@ -91,12 +91,14 @@
                 "def handler(event, context): \n",
                 "  message =  str(event['detail']['eventDescription'][0]['latestDescription'] + \"\\n\\n<https://phd.aws.amazon.com/phd/home?region=us-east-1#/event-log?eventID=\" + event['detail']['eventArn'] + \"|Click here> for details.\") \n",
                 "  json.dumps(message) \n",
+                "  decoded_message = bytes(message, \"utf-8\").decode(\"unicode_escape\") \n"
+                "  json.dumps(decoded_message) \n"
                 "  slack_message = { \n",
                 "    'channel': '",
                      {
                       "Ref": "SlackChannel"
                      },
-                "',\n    'text': message \n",
+                "',\n    'text': decoded_message \n",
                 "} \n",
                 "  logger.info(str(slack_message)) \n",
 

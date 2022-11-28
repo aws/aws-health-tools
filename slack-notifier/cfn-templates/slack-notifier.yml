@@ -69,7 +69,8 @@ Resources:
                     event['detail']['eventArn'] +
                     "|Click here> for details."
                 )
-                json.dumps(message)
+                decoded_message = bytes(message, "utf-8").decode("unicode_escape")
+                json.dumps(decoded_message)
                 slack_message = {
                   "channel": "${SlackChannel}",
                   "text": message,
