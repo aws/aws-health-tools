@@ -4,7 +4,7 @@
     "EmailAddress": {
 	  "Description": "Please enter an email address to subscribe to the SNS topic. To subscribe additional email addresses and for other subscription options, go to SNS >> Topics >> \"DXMaintNotify\" >> Create subscription",
       "Type": "String",
-	  "AllowedPattern": "[a-zA-Z0-9]+@[0-9a-zA-Z]+\\.[a-zA-Z]+",
+	  "AllowedPattern": "[\-a-zA-Z0-9]+@[0-9a-zA-Z]+\\.[a-zA-Z]+",
 	  "ConstraintDescription": "Please enter a valid email address for the SNS subscription"
     }
   },    
