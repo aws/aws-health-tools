@@ -110,7 +110,7 @@
                 "//main function which gets AWS Health data from Cloudwatch event\n",
                 "exports.handler = (event, context, callback) => {\n",
                 "    //extract details from Cloudwatch event\n",
-                "    healthMessage = event.detail.eventDescription[0].latestDescription.replace('\\\\n', '\\n') + '. For more details, please see https://phd.aws.amazon.com/phd/home?region=' + event.region + '#/dashboard/open-issues' + '\\n\\nRegion: ' + event.region + '\\nAccount Id: ' + event.account + '\\n\\nAffected Resources:';\n",
+                "    healthMessage = event.detail.eventDescription[0].latestDescription.replace(/\\\\n/g, '\\n') + '\\n\\nFor more details, please see https://phd.aws.amazon.com/phd/home?region=' + event.region + '#/dashboard/open-issues' + '\\n\\nRegion: ' + event.region + '\\nAccount Id: ' + event.account + '\\n\\nAffected Resources:';\n",
                 "    for (var i=0; i<event.resources.length; i++) {healthMessage += '\\n' + event.resources[i];}\n",
                 "    healthMessage += '\\n\\nStart Time: ' + event.detail.startTime + '\\nEnd Time: ' + event.detail.endTime;\n",
                 "    eventName = event.detail.eventTypeCode\n",
