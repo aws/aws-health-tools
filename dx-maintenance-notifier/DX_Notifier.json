@@ -34,6 +34,7 @@
 	"SnsTopic": {
 	  "Type": "AWS::SNS::Topic",
 	  "Properties": {
+		  "KmsMasterKeyId": "alias/aws/sns",
 		  "DisplayName": "DXMaintNotify",
 		  "TopicName" : "DXMaintNotify",
 		  "Subscription" : [
