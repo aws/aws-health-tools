@@ -19,6 +19,7 @@ Resources:
   MySNSTopic:
     Type: AWS::SNS::Topic
     Properties:
+      KmsMasterKeyId: "alias/aws/sns"
       TopicName: !Ref SNSTopicName
       DisplayName: !Ref SNSTopicName
       Subscription:
