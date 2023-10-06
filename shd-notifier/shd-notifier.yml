@@ -143,7 +143,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 128
       Role: !GetAtt "LambdaRole.Arn"
-      Runtime: python3.7
+      Runtime: python3.11
       Timeout: 30
       Environment:
         Variables:
@@ -166,7 +166,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 128
       Role: !GetAtt LambdaRole.Arn
-      Runtime: python3.7
+      Runtime: python3.11
       Timeout: 30
       Environment:
         Variables:
@@ -186,7 +186,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 128
       Role: !GetAtt LambdaRole.Arn
-      Runtime: python3.7
+      Runtime: python3.11
       Timeout: 30
       Code:
         ZipFile: |
@@ -201,7 +201,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 128
       Role: !GetAtt LambdaRole.Arn
-      Runtime: python3.7
+      Runtime: python3.11
       Timeout: 30
       Code:
         ZipFile: |
