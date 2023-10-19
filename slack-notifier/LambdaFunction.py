@@ -14,13 +14,9 @@ Follow these steps to configure the webhook in Slack:
 You can also use KMS to encrypt the webhook URL as shown here: https://aws.amazon.com/blogs/aws/new-slack-integration-blueprints-for-aws-lambda/
 '''
 
-from __future__ import print_function
-import boto3
 import json
 import logging
-import os
 from urllib.request import Request, urlopen, URLError, HTTPError
-from urllib.parse import urlencode
 
 #configuration
 
