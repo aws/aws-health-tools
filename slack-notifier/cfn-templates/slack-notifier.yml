@@ -51,13 +51,9 @@ Resources:
         ZipFile:
           Fn::Sub: |
             # Sample Lambda Function to post notifications to a slack channel when an AWS Health event happens
-            from __future__ import print_function
-            import boto3
             import json
             import logging
-            import os
             from urllib.request import Request, urlopen, URLError, HTTPError
-            from urllib.parse import urlencode
             # Setting up logging
             logger = logging.getLogger()
             logger.setLevel(logging.INFO)
@@ -82,14 +78,14 @@ Resources:
                   headers={"content-type": "application/json"}
                 )
                 try:
-                  response = urlopen(req)
-                  response.read()
-                  logger.info("Message posted to: %s", slack_message['channel'])
+                    response = urlopen(req)
+                    response.read()
+                    logger.info("Message posted to: %s", slack_message['channel'])
                 except HTTPError as e:
-                   logger.error("Request failed : %d %s", e.code, e.reason)
+                    logger.error("Request failed : %d %s", e.code, e.reason)
                 except URLError as e:
-                   logger.error("Server connection failed: %s", e.reason)
-      Runtime: python3.7
+                    logger.error("Server connection failed: %s", e.reason)
+      Runtime: python3.11
       Timeout: '60'
   LambdaInvokePermission:
     Type: AWS::Lambda::Permission
