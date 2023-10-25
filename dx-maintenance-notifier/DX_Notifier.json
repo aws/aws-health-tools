@@ -67,7 +67,7 @@
                 "sns:Publish"
               ],
               "Effect": "Allow",
-              "Resource": "*"
+              "Resource": {"Ref": "SnsTopic"}
             }
           ]
         },
