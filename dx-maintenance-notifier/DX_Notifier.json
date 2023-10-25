@@ -67,7 +67,7 @@
                 "sns:Publish"
               ],
               "Effect": "Allow",
-              "Resource": "*"
+              "Resource": {"Ref": "SnsTopic"}
             }
           ]
         },
@@ -92,53 +92,66 @@
             "Arn"
           ]
         },
+        "Environment": {
+          "Variables": {
+            "SNS_TOPIC": {
+              "Ref": "SnsTopic"
+            }
+          }
+        },
         "Code": {
           "ZipFile": {
             "Fn::Join": [
               "",
               [
                 "// Sample Lambda Function to send notifications to a SNS topic when an AWS Health event happens\n",
-                "var AWS = require('aws-sdk');\n",
-                "var sns = new AWS.SNS();\n",
+                "const { SNSClient, PublishCommand } = require(\"@aws-sdk/client-sns\");\n",
+                "const snsClient = new SNSClient();\n",
                 "\n",
                 "// define configuration\n",
-                "const snsTopic ='",
-                {
-                  "Ref": "SnsTopic"
-                },
-                "'; //use ARN",
+                "const snsTopic = process.env.SNS_TOPIC;",
                 "\n",
-                "//main function which gets AWS Health data from Cloudwatch event\n",
-                "exports.handler = (event, context, callback) => {\n",
-                "    //extract details from Cloudwatch event\n",
-                "    healthMessage = event.detail.eventDescription[0].latestDescription.replace(/\\\\n/g, '\\n') + '\\n\\nFor more details, please see https://phd.aws.amazon.com/phd/home?region=' + event.region + '#/dashboard/open-issues' + '\\n\\nRegion: ' + event.region + '\\nAccount Id: ' + event.account + '\\n\\nAffected Resources:';\n",
-                "    for (var i=0; i<event.resources.length; i++) {healthMessage += '\\n' + event.resources[i];}\n",
-                "    healthMessage += '\\n\\nStart Time: ' + event.detail.startTime + '\\nEnd Time: ' + event.detail.endTime;\n",
-                "    eventName = event.detail.eventTypeCode\n",
-                "    //prepare message for SNS to publish\n",
-                "    var snsPublishParams = {\n",
-                "        Message: healthMessage, \n",
+                "// main function which gets AWS Health data from Cloudwatch event\n",
+                "const handler = async (event, context) => {\n",
+                "    let healthMessage = `${event.detail.eventDescription[0].latestDescription}. For more details, please see https://phd.aws.amazon.com/phd/home?region=${event.region}#/dashboard/open-issues\n\n",
+                "Region: ${event.region}\n",
+                "Account Id: ${event.account}\n",
+                "Affected Resources:`;\n",
+                "\n",
+                "    for (let resource of event.resources) {\n",
+                "        healthMessage += `\\n${resource}`;\n",
+                "    }\n",
+                "\n",
+                "    healthMessage += `\\n\\nStart Time: ${event.detail.startTime}\\nEnd Time: ${event.detail.endTime}`;\n",
+                "\n",
+                "    const eventName = event.detail.eventTypeCode;\n",
+                "\n",
+                "    // prepare message for SNS to publish\n",
+                "    const snsPublishParams = {\n",
+                "        Message: healthMessage,\n",
                 "        Subject: eventName,\n",
                 "        TopicArn: snsTopic\n",
                 "    };\n",
-                "    sns.publish(snsPublishParams, function(err, data) {\n",
-                "    if (err) {\n",
-                "        const snsPublishErrorMessage = `Error publishing AWS Health event to SNS`;\n",
-                "        console.log(snsPublishErrorMessage, err);\n",
-                "        callback(snsPublishErrorMessage);\n",
-                "        } \n",
-                "    else {\n",
+                "\n",
+                "    try {\n",
+                "        const command = new PublishCommand(snsPublishParams);\n",
+                "        const data = await snsClient.send(command);\n",
                 "        const snsPublishSuccessMessage = `Successfully got details from AWS Health event, ${eventName} and published to SNS topic.`;\n",
                 "        console.log(snsPublishSuccessMessage, data);\n",
-                "        callback(null, snsPublishSuccessMessage); //return success\n",
-                "        }\n",
-                "    });\n",
-                "};"
+                "        return snsPublishSuccessMessage;\n",
+                "    } catch (err) {\n",
+                "        const snsPublishErrorMessage = `Error publishing AWS Health event to SNS`;\n",
+                "        console.log(snsPublishErrorMessage, err);\n",
+                "        throw new Error(snsPublishErrorMessage);\n",
+                "    }\n",
+                "};\n",
+                "\n",
+                "module.exports = { handler };\n"
               ]
             ]
           }
         },
-        "Runtime": "nodejs12.x",
+        "Runtime": "nodejs18.x",
         "Timeout": "25"
       }
     },
