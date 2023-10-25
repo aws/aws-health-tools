@@ -92,6 +92,13 @@
             "Arn"
           ]
         },
+        "Environment": {
+          "Variables": {
+            "SNS_TOPIC": {
+              "Ref": "SnsTopic"
+            }
+          }
+        },
         "Code": {
           "ZipFile": {
             "Fn::Join": [
@@ -102,11 +109,7 @@
                 "const snsClient = new SNSClient();\n",
                 "\n",
                 "// define configuration\n",
-                "const snsTopic ='",
-                {
-                  "Ref": "SnsTopic"
-                },
-                "'; //use ARN",
+                "const snsTopic = process.env.SNS_TOPIC;",
                 "\n",
                 "// main function which gets AWS Health data from Cloudwatch event\n",
                 "const handler = async (event, context) => {\n",
