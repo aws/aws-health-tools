@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Capture AWS Fargate Task Retirement Events
+
+Parameters:
+  SlackWorkspaceURL:
+    Description: Slack Workspace URL and Token
+    Type: 'String'
+  SlackChannel:
+    Description: Existing Slack Channel to post the message
+    Type: 'String'
+
+Resources:
+  TaskRetirementLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Capture Task Retirement Events'
+      Runtime: python3.9
+      Handler: app.lambda_handler
+      CodeUri: src
+      Environment:
+        Variables:
+          SLACK_WORKSPACE_URL: !Ref SlackWorkspaceURL
+          SLACK_CHANNEL: !Ref SlackChannel
+      EventInvokeConfig:
+          MaximumRetryAttempts: 0
+      Events:
+        CwEvents:
+          Type: CloudWatchEvent
+          Properties:
+            Enabled: true
+            Pattern:
+              detail-type:
+                - "AWS Health Event"
+              detail:
+                eventTypeCode:
+                  - "AWS_ECS_TASK_PATCHING_RETIREMENT"
