@@ -40,6 +40,7 @@ Versioning will be enabled on the source and destination buckets by the script a
 - `--destination-region`: The destination region. (e.g. eu-central-1)
 - `--source-region`: (Optional) The source region. This will default to me-central-1.
 - `--role-arn`: (Optional) The replication role arn. If this is not provided a role will be created called s3-replication-{source-region}-{source-bucket}
+- `--monitor [SECONDS]`: (Optional) Poll for job completion with interval in seconds. Defaults to 60 seconds if no value provided. Omit to exit immediately after job creation.
 
 ## Examples
 

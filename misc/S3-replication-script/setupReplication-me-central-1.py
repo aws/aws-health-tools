@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--destination-bucket', required=True)
     parser.add_argument('--destination-region', required=True)
     parser.add_argument('--role-arn', required=False)
+    parser.add_argument('--monitor', type=int, nargs='?', const=60, default=None, help='Poll for job completion with interval in seconds (default: 60)')
     args = parser.parse_args()
 
     source_region = args.source_region
@@ -40,17 +41,23 @@ def main():
     # Verify source bucket exists
     try:
         s3_src.head_bucket(Bucket=args.source_bucket)
-    except:
-        print(f"Source bucket {args.source_bucket} does not exist")
+    except s3_src.exceptions.ClientError as e:
+        print(f"Cannot access source bucket {args.source_bucket}: {e}")
         sys.exit(1)
 
     # Check/create destination bucket
     try:
         s3_dest.head_bucket(Bucket=args.destination_bucket)
-    except Exception:
-        constraint = {'us-east-1': 'US', 'eu-west-1': 'EU'}.get(args.destination_region, args.destination_region)
-        s3_dest.create_bucket(Bucket=args.destination_bucket, CreateBucketConfiguration={'LocationConstraint': constraint})
-        s3_dest.put_bucket_versioning(Bucket=args.destination_bucket, VersioningConfiguration={'Status': 'Enabled'})
+    except s3_dest.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == '404':
+            if args.destination_region == 'us-east-1':
+                s3_dest.create_bucket(Bucket=args.destination_bucket)
+            else:
+                s3_dest.create_bucket(Bucket=args.destination_bucket, CreateBucketConfiguration={'LocationConstraint': args.destination_region})
+            s3_dest.put_bucket_versioning(Bucket=args.destination_bucket, VersioningConfiguration={'Status': 'Enabled'})
+        else:
+            print(f"Cannot access destination bucket {args.destination_bucket}: {e}")
+            sys.exit(1)
 
     # Enable versioning on source
     s3_src.put_bucket_versioning(Bucket=args.source_bucket, VersioningConfiguration={'Status': 'Enabled'})
@@ -121,29 +128,50 @@ def main():
             'Destination': {'Bucket': f"arn:aws:s3:::{args.destination_bucket}"}
         }]
     }
-    s3_src.put_bucket_replication(Bucket=args.source_bucket, ReplicationConfiguration=replication_config)
-    print(f"Replication configured from {args.source_bucket} to {args.destination_bucket}")
+    try:
+        s3_src.put_bucket_replication(Bucket=args.source_bucket, ReplicationConfiguration=replication_config)
+        print(f"Replication configured from {args.source_bucket} to {args.destination_bucket}")
+    except s3_src.exceptions.ClientError as e:
+        print(f"Failed to configure replication: {e}")
+        sys.exit(1)
 
     # Start batch replication job
     account_id = sts_src.get_caller_identity()['Account']
     s3control = boto3.client('s3control', region_name=source_region)
 
-    job = s3control.create_job(
-        AccountId=account_id,
-        ConfirmationRequired=False,
-        Operation={'S3ReplicateObject': {}},
-        Report={'Enabled': False},
-        ManifestGenerator={'S3JobManifestGenerator': {'SourceBucket': f'arn:aws:s3:::{args.source_bucket}', 'EnableManifestOutput': False, 'Filter': {'EligibleForReplication': True}}},
-        Priority=1,
-        RoleArn=role_arn
-    )
-    job_id = job['JobId']
-    print(f"Batch replication job started: {job_id}")
+    try:
+        job = s3control.create_job(
+            AccountId=account_id,
+            ConfirmationRequired=False,
+            Operation={'S3ReplicateObject': {}},
+            Report={'Enabled': False},
+            ManifestGenerator={'S3JobManifestGenerator': {'SourceBucket': f'arn:aws:s3:::{args.source_bucket}', 'EnableManifestOutput': False, 'Filter': {'EligibleForReplication': True}}},
+            Priority=1,
+            RoleArn=role_arn
+        )
+        job_id = job['JobId']
+        print(f"Batch replication job started: {job_id}")
 
-    # Get job status
-    job_status = s3control.describe_job(AccountId=account_id, JobId=job_id)
-    print(f"Job Status: {job_status['Job']['Status']}")
-    print(f"Progress: {job_status['Job'].get('ProgressSummary', {})}")
+        print(f"\nTo monitor job status, run:")
+        print(f"  aws s3control describe-job --account-id {account_id} --job-id {job_id} --region {source_region}")
+
+        if args.monitor is not None:
+            print(f"\nMonitoring job every {args.monitor}s (Ctrl+C to stop)...")
+            try:
+                while True:
+                    job_status = s3control.describe_job(AccountId=account_id, JobId=job_id)
+                    status = job_status['Job']['Status']
+                    progress = job_status['Job'].get('ProgressSummary', {})
+                    elapsed = progress.get('Timers', {}).get('ElapsedTimeInActiveSeconds', 0)
+                    print(f"Status: {status} | Tasks: {progress.get('TotalNumberOfTasks', 0)} | Succeeded: {progress.get('NumberOfTasksSucceeded', 0)} | Failed: {progress.get('NumberOfTasksFailed', 0)} | Elapsed: {elapsed}s")
+                    if status in ('Complete', 'Failed', 'Cancelled'):
+                        break
+                    time.sleep(args.monitor)
+            except KeyboardInterrupt:
+                print("\nMonitoring stopped. Job continues in background.")
+    except s3control.exceptions.ClientError as e:
+        print(f"Failed to create/monitor batch job: {e}")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
