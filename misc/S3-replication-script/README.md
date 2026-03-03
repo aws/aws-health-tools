@@ -3,7 +3,8 @@
 ## Goal
 
 This script is designed to quickly setup replication between a source bucket and a destination bucket.
-This script is primarily intended to assist with migration from me-central-1. You can use this script to setup a one-time S3 batch replication job from any AWS region by specifying the `--source-region` command line argument.
+- By default, the script is configured to assist with migration from me-central-1 AWS Region.
+- For a different AWS Region source, use `--source-region` in the command line argument. It sets up a one-time S3 batch replication job from any other AWS region.
 
 ## Requirements
 
