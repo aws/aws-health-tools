@@ -4,3 +4,18 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  - package-ecosystem: "pip"
+    directory: "/automated-actions/ECS_TASK_PATCHING_AUTOMATION"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "pip"
+    directory: "/high-availability-endpoint/python"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "gradle"
+    directory: "/high-availability-endpoint/java"
+    schedule:
+      interval: "weekly"
