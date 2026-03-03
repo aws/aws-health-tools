@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import sys
 import os
 import io
+from botocore.exceptions import ClientError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,6 +18,11 @@ spec = importlib.util.spec_from_file_location(
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "setupReplication-me-central-1.py")
 )
 setup_replication = importlib.util.module_from_spec(spec)
+
+
+def make_client_error(code='404', message='Not Found'):
+    """Create a botocore ClientError for testing."""
+    return ClientError({'Error': {'Code': code, 'Message': message}}, 'HeadBucket')
 
 
 class TestSetupReplication(unittest.TestCase):
@@ -31,10 +37,18 @@ class TestSetupReplication(unittest.TestCase):
         self.account_id = '123456789012'
         self.role_arn = f'arn:aws:iam::{self.account_id}:role/s3-replication-{self.source_region}-{self.source_bucket}'
 
-    def _create_mock_clients(self, s3_src_config=None, s3_dest_config=None):
+    def _create_mock_clients(self, src_head_error=False, dest_head_error=False):
         """Helper to create mock boto3 clients."""
         mock_s3_src = MagicMock()
+        mock_s3_src.exceptions.ClientError = ClientError
+        if src_head_error:
+            mock_s3_src.head_bucket.side_effect = make_client_error()
+
         mock_s3_dest = MagicMock()
+        mock_s3_dest.exceptions.ClientError = ClientError
+        if dest_head_error:
+            mock_s3_dest.head_bucket.side_effect = make_client_error()
+
         mock_sts = MagicMock()
         mock_sts.get_caller_identity.return_value = {'Account': self.account_id}
         mock_iam = MagicMock()
@@ -42,14 +56,6 @@ class TestSetupReplication(unittest.TestCase):
         mock_s3control = MagicMock()
         mock_s3control.create_job.return_value = {'JobId': 'test-job-id'}
         mock_s3control.describe_job.return_value = {'Job': {'Status': 'Active', 'ProgressSummary': {}}}
-
-        if s3_src_config:
-            for k, v in s3_src_config.items():
-                setattr(mock_s3_src, k, v) if not callable(v) else setattr(getattr(mock_s3_src, k), 'side_effect', v)
-        if s3_dest_config:
-            for k, v in s3_dest_config.items():
-                if k == 'head_bucket_error':
-                    mock_s3_dest.head_bucket.side_effect = Exception("Not found")
 
         def client_factory(service, region_name=None):
             if service == 's3' and region_name == self.source_region:
@@ -70,12 +76,7 @@ class TestSetupReplication(unittest.TestCase):
     @patch('boto3.client')
     def test_source_bucket_not_exists(self, mock_boto_client, mock_sleep):
         """Test script exits when source bucket doesn't exist."""
-        mock_s3 = MagicMock()
-        mock_s3.head_bucket.side_effect = Exception("Bucket not found")
-
-        def client_factory(service, region_name=None):
-            return mock_s3
-
+        client_factory, _, _, _, _, _ = self._create_mock_clients(src_head_error=True)
         mock_boto_client.side_effect = client_factory
 
         with patch('sys.argv', ['script', '--source-bucket=nonexistent', '--destination-bucket=dest', '--destination-region=eu-central-1']):
@@ -89,9 +90,7 @@ class TestSetupReplication(unittest.TestCase):
     @patch('boto3.client')
     def test_destination_bucket_created_when_not_exists(self, mock_boto_client, mock_sleep):
         """Test destination bucket is created if it doesn't exist."""
-        client_factory, mock_s3_src, mock_s3_dest, _, _, _ = self._create_mock_clients(
-            s3_dest_config={'head_bucket_error': True}
-        )
+        client_factory, _, mock_s3_dest, _, _, _ = self._create_mock_clients(dest_head_error=True)
         mock_boto_client.side_effect = client_factory
 
         with patch('sys.argv', ['script', f'--source-bucket={self.source_bucket}', f'--destination-bucket={self.dest_bucket}', f'--destination-region={self.dest_region}']):
