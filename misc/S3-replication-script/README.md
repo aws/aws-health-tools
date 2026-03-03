@@ -48,3 +48,11 @@ Versioning will be enabled on the source and destination buckets by the script a
   ```bash
   python3 setupReplication-me-central-1.py --source-bucket=my-source-bucket --source-region=me-central-1 --destination-bucket=my-destination-bucket --destination-region=eu-central-1 --role-arn=arn:aws:iam::123456789012:role/my-replication-role
   ```
+
+## Development
+
+### Running Tests
+
+```bash
+python3 -m unittest discover -s test -v
+```
