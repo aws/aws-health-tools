@@ -3,7 +3,7 @@
 ## Goal
 
 This script is designed to quickly setup replication between a source bucket and a destination bucket.
-This script is primarily intended to assist with migration from me-central-1.
+This script is primiarily intended to assist with migration from DXB.
 
 ## Requirements
 
@@ -29,7 +29,7 @@ aws configure --profile your-profile-name
 ## Usage
 
 Run the script from the command line, specifying the arns of the S3 source and destination buckets along with the destination region.
-You can optionally provide the source region (it will default to me-central-1) and an IAM ARN to use as the replication role.
+You can optionally provide the source region (it will default to DXB) and an IAM ARN to use as the replication role.
 Versioning will be enabled on the source and destination buckets by the script as this is required for replication.
 
 ### Arguments
@@ -38,11 +38,11 @@ Versioning will be enabled on the source and destination buckets by the script a
 - `--destination-bucket`: The name of the destination bucket. This bucket will be created if it does not exist.
 - `--destination-region`: The destination region. (e.g. eu-central-1)
 - `--source-region`: (Optional) The source region. This will default to me-central-1.
-- `--role-arn`: (Optional) The replication role arn. If this is not provided a role will be created called s3-replication-{source-region}-{source-bucket}
+- `--role-arn`: (Optional) The replication role arn. If this is not provided a role will be created called s3-dxb-replication-{source-bucket}
 
 ## Examples
 
 - **Check Settings Without Updating**:
   ```bash
-  python3 setupReplication-me-central-1.py --source-bucket=my-source-bucket --source-region=me-central-1 --destination-bucket=my-destination-bucket --destination-region=eu-central-1 --role-arn=arn:aws:iam::123456789012:role/my-replication-role
+  python3 setupReplicationDxb.py --source-bucket=my-source-bucket --source-region=me-central-1 --destination-bucket=my-destination-bucket --destination-region=eu-central-1 --role-arn=arn:aws:iam::123456789012:role/my-replication-role
   ```
