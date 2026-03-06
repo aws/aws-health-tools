@@ -1,8 +1,0 @@
-.idea/
-.kiro/
-.venv/
-__pycache__/
-*.pyc
-dist/
-*.egg-info/
-s3_batch_replication/_version.py
