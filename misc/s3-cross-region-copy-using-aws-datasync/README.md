@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get started with DataSync task creation in minutes.
+Use this guide to configure DataSync tasks for data replication between AWS S3 buckets in different regions.
 
 ## Requirements
 
@@ -8,13 +8,13 @@ Get started with DataSync task creation in minutes.
 - Boto3 library (AWS SDK for Python)
 - **IAM Permissions**:
    - `iam:CreateRole`, `iam:PutRolePolicy`, `iam:GetRole`
-   - `iam:CreateServiceLinkedRole` (for Enhanced mode)
+   - `iam:CreateServiceLinkedRole`
    - `s3:CreateBucket` (if auto-creating destination bucket)
    - `datasync:*`
 
 ## Setup
 
-Before running the script, ensure that you have Python 3 and Boto3 installed.
+Before running the create_datasync_task.py script, ensure that you have Python 3 and Boto3 installed.
 Install Boto3 using pip if it's not already installed:
 
 ```bash
@@ -27,41 +27,81 @@ Configure your AWS credentials using the AWS CLI:
 aws configure --profile your-profile-name
 ```
 
-## Simplest Usage
+## Usage
 
-### Provide the source and destination buckets and let the script create the rest:
+There are 3 tools provided to help your setup, run, monitor, and cleanup DataSync resources
+for your data copy jobs:
+
+1. Create and run your DataSync tasks - create_datasync_task.py
+2. Check the status of your DataSync tasks - check_task_status.py
+3. Delete the DataSync tasks - cleanup_datasync_tasks.py
+
+### Run create_datasync_task.py:
+
+This step will create a DataSync task to copy data from your source to destination bucket. It
+can also optionally start the DataSync task, or you can start it yourself via the AWS DataSync console
+or CLI.
+
+The script also stores the ARNs of any resources created in datasync.json.
+
+You will provide:
+
+- The source bucket and optionally its region (default region is me-central-1)
+- The destination bucket and its region
+- Optionally, you can have the script run the create DataSync task
 
 ```bash
 python create_datasync_task.py \
     --source-bucket my-bucket \
     --source-region me-central-1 \
     --dest-bucket my-dest-bucket \
-    --dest-region us-east-1
+    --dest-region eu-west-1 \
+    --start
 ```
 
 This automatically:
 - Creates IAM roles (source read-only, destination write)
 - Creates DataSync locations
-- Creates Enhanced mode task (250 MB/s default)
+- Creates DataSync enhanced mode task
 - Saves to `datasync_tasks.json`
+- Runs the created DataSync task
 
-### Auto-create destination bucket and all resources:
+More options are covered later in the README.
 
+### Run check_task_status.py
+
+This command helps you monitor the DataSync tasks created by the create_datasync_task.py script.  You can run
+the script multiple times manually or you can pass the `--monitor` option to have the script poll for
+you and post any updates to the screen.
+
+Check execution status of all tasks in registry:
 ```bash
-python create_datasync_task.py \
-    --source-bucket my-bucket \
-    --source-region me-central-1 \
-    --dest-region us-east-1
+python check_task_status.py
 ```
 
-This automatically:
-- Creates destination bucket: `my-bucket-us-east-1`
-- Creates IAM roles (source read-only, destination write)
-- Creates DataSync locations
-- Creates Enhanced mode task (250 MB/s default)
-- Saves to `datasync_tasks.json`
+Same as above, but the script will poll for you:
+```bash
+python check_task_status.py --monitor
+```
 
-## Command Line Options
+### Run cleanup_datasync_tasks.py
+
+This step is optional, but can be useful if you do not intend to run the DataSync tasks again.
+
+This script will delete all DataSync resources created by the script.  This will not affect any data
+transferred by the DataSync tasks or any data in your S3 buckets.
+
+Preview what will be deleted:
+```bash
+python cleanup_datasync_tasks.py --dry-run
+```
+
+Delete all resources (buckets are never deleted):
+```bash
+python cleanup_datasync_tasks.py
+```
+
+## Detailed Command Line Options for create_datasync_task.py
 
 ### Required
 - `--source-bucket` - Source S3 bucket name
@@ -70,7 +110,7 @@ This automatically:
 ### Optional
 - `--source-region` - Source AWS region (default: me-central-1)
 - `--dest-bucket` - Destination bucket name (omit to auto-create)
-- `--throughput-mbps` - Throughput limit in Mbps (default: 250)
+- `--throughput-mbps` - Throughput limit in Mbps (default: 100)
 - `--log-level` - CloudWatch logging level: OFF, BASIC, TRANSFER (default: BASIC)
 - `--source-role-arn` - IAM role ARN for source (omit to auto-create)
 - `--dest-role-arn` - IAM role ARN for destination (omit to auto-create)
@@ -82,6 +122,22 @@ This automatically:
 - `--test-mode` - Start CSV tasks with include filters (mutually exclusive with --start)
 
 ## Common Examples
+
+### Auto-create destination bucket and all resources:
+
+```bash
+python create_datasync_task.py \
+    --source-bucket my-bucket \
+    --source-region me-central-1 \
+    --dest-region eu-west-1
+```
+
+This automatically:
+- Creates destination bucket: `my-bucket-eu-west-1`
+- Creates IAM roles (source read-only, destination write)
+- Creates DataSync locations
+- Creates Enhanced mode task
+- Saves to `datasync_tasks.json`
 
 ### Use Existing Destination Bucket
 ```bash
@@ -151,6 +207,8 @@ python create_datasync_task.py \
 ```
 
 ## CSV Batch Processing
+
+If you have many buckets to copy, you can provide a list of the details in a CSV file.
 
 ### CSV Format
 
