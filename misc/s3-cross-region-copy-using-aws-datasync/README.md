@@ -2,15 +2,30 @@
 
 Get started with DataSync task creation in minutes.
 
-## Prerequisites
+## Requirements
 
-1. **AWS Credentials**: Configure with `aws configure`
-2. **IAM Permissions**:
+- Python 3
+- Boto3 library (AWS SDK for Python)
+- **IAM Permissions**:
    - `iam:CreateRole`, `iam:PutRolePolicy`, `iam:GetRole`
    - `iam:CreateServiceLinkedRole` (for Enhanced mode)
    - `s3:CreateBucket` (if auto-creating destination bucket)
    - `datasync:*`
-3. **Source Bucket**: Must exist in source region (default: me-central-1)
+
+## Setup
+
+Before running the script, ensure that you have Python 3 and Boto3 installed.
+Install Boto3 using pip if it's not already installed:
+
+```bash
+pip install boto3
+```
+
+Configure your AWS credentials using the AWS CLI:
+
+```bash
+aws configure --profile your-profile-name
+```
 
 ## Simplest Usage
 
