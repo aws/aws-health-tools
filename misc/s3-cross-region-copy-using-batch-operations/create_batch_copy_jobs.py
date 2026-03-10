@@ -32,7 +32,7 @@ Features:
     - Auto-creates a least-privilege IAM role for the batch job if ``--role-arn`` is not provided. The role is
       scoped to the caller's account via ``s3:ResourceAccount`` condition. A 60-second wait is applied after
       role creation to allow IAM propagation.
-    - Jobs start in Ready state by default. Pass ``--confirm`` to require manual confirmation before execution.
+    - Jobs are created in Suspended state by default. Pass ``--start`` to run immediately.
 
 Usage:
     python create_batch_copy_jobs.py --source-bucket SOURCE --destination-region REGION \\
@@ -59,7 +59,7 @@ Examples:
         --manifest-bucket my-manifest-bucket \\
         --manifest-keys manifests/prod-copy-001.csv manifests/prod-copy-large.csv
 
-    # Versioned bucket, custom destination, named profile, require confirmation
+    # Versioned bucket, custom destination, named profile, start immediately
     python create_batch_copy_jobs.py \\
         --source-bucket my-source-bucket \\
         --source-region us-east-1 \\
@@ -69,7 +69,7 @@ Examples:
         --manifest-key manifests/prod-copy \\
         --include-versions \\
         --storage-class STANDARD_IA \\
-        --confirm \\
+        --start \\
         --profile prod
 
     # Bring your own IAM role
@@ -129,7 +129,8 @@ def parse_args():
     p.add_argument("--storage-class", default="STANDARD", help="Storage class (default: STANDARD)")
     p.add_argument("--description", default=None, help="Job description")
     p.add_argument("--priority", type=int, default=10, help="Job priority (default: 10)")
-    p.add_argument("--confirm", action="store_true", help="Require manual confirmation before job runs (default: jobs start immediately)")
+    p.add_argument("--confirm", action="store_true", help="(Deprecated, ignored) Jobs now default to Suspended. Use --start to run immediately.")
+    p.add_argument("--start", action="store_true", help="Start jobs immediately (default: jobs are created in Suspended state)")
     p.add_argument("--include-versions", action="store_true", help="Manifest contains VersionId column")
     p.add_argument("--profile", default=None, help="AWS CLI profile name")
     return p.parse_args()
@@ -192,6 +193,14 @@ def ensure_bucket(s3, bucket, region, label=""):
     s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={
         "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}, "BucketKeyEnabled": True}],
     })
+    s3.put_bucket_policy(Bucket=bucket, Policy=json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{"Sid": "DenyInsecureTransport", "Effect": "Deny",
+                       "Principal": "*", "Action": "s3:*", "Resource": [
+                           f"arn:aws:s3:::{bucket}",
+                           f"arn:aws:s3:::{bucket}/*"],
+                       "Condition": {"Bool": {"aws:SecureTransport": "false"}}}],
+    }))
 
 
 def copy_versioning(s3_source, s3_dest, source_bucket, dest_bucket):
@@ -217,7 +226,7 @@ def _validate_bucket_name_length(name, label):
         sys.exit(1)
 
 
-def create_role(iam, account_id, source_bucket, dest_bucket, report_bucket, manifest_bucket):
+def create_role(iam, account_id, source_bucket, dest_bucket, report_bucket, manifest_bucket, manifest_keys):
     """Create a least-privilege IAM role for S3 Batch Operations.
 
     The role trusts the batchoperations.s3.amazonaws.com service principal and grants:
@@ -225,12 +234,13 @@ def create_role(iam, account_id, source_bucket, dest_bucket, report_bucket, mani
           on the source bucket (for reading objects to copy).
         - s3:PutObject, s3:PutObjectTagging on the destination bucket (for writing copied objects).
         - s3:PutObject on the report bucket (for writing job completion reports).
-        - s3:GetObject on the manifest bucket (for reading the CSV manifest files).
+        - s3:GetObject on the specific manifest keys in the manifest bucket.
     All statements are scoped to the caller's account via the s3:ResourceAccount condition key.
 
     Waits 60 seconds after creation for IAM propagation before returning.
     Returns (role_arn, role_name).
     """
+    manifest_arns = [f"arn:aws:s3:::{manifest_bucket}/{k}" for k in manifest_keys]
     role_name = f"S3BatchCopy-{source_bucket[:20]}-{int(time.time())}"
     policy = {
         "Version": "2012-10-17",
@@ -257,7 +267,7 @@ def create_role(iam, account_id, source_bucket, dest_bucket, report_bucket, mani
             {
                 "Effect": "Allow",
                 "Action": "s3:GetObject",
-                "Resource": f"arn:aws:s3:::{manifest_bucket}/*",
+                "Resource": manifest_arns,
                 "Condition": {"StringEquals": {"s3:ResourceAccount": account_id}},
             },
         ],
@@ -280,7 +290,7 @@ def create_job(s3control, s3_manifest, account_id, args, dest_bucket, report_buc
         - Operation: S3PutObjectCopy to the destination bucket with the specified storage class.
         - Manifest: S3BatchOperations_CSV_20180820 format, fields [Bucket, Key] or [Bucket, Key, VersionId].
         - Report: enabled for all tasks, written to the report bucket under the configured prefix.
-        - ConfirmationRequired: based on --confirm flag (default: False, jobs start immediately).
+        - ConfirmationRequired: based on --start flag (default: True, jobs created in Suspended state).
 
     Returns the job ID.
     """
@@ -291,7 +301,7 @@ def create_job(s3control, s3_manifest, account_id, args, dest_bucket, report_buc
 
     params = {
         "AccountId": account_id,
-        "ConfirmationRequired": args.confirm,
+        "ConfirmationRequired": not args.start,
         "Operation": {
             "S3PutObjectCopy": {
                 "TargetResource": f"arn:aws:s3:::{dest_bucket}",
@@ -360,7 +370,7 @@ def main():
     if not role_arn:
         iam = session.client("iam", config=RETRY_CONFIG)
         role_arn, role_name = create_role(iam, account_id, args.source_bucket, dest_bucket,
-                                          report_bucket, args.manifest_bucket)
+                                          report_bucket, args.manifest_bucket, manifest_keys)
 
     log.info("--- Creating batch copy jobs ---")
     job_ids = []

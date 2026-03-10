@@ -99,7 +99,8 @@ This auto-discovers all `manifests/my-job-*.csv` files and creates one S3 Batch 
 | `--storage-class` | No | `STANDARD` | Storage class for copied objects |
 | `--description` | No | auto-generated | Job description |
 | `--priority` | No | `10` | Job priority |
-| `--confirm` | No | off | Require manual confirmation before job runs (default: starts immediately) |
+| `--confirm` | No | off | (Deprecated) Ignored — jobs now default to Suspended |
+| `--start` | No | off | Start jobs immediately (default: jobs are created in Suspended state) |
 | `--include-versions` | No | off | Manifest includes VersionId column |
 | `--profile` | No | default | AWS CLI profile name |
 
@@ -147,6 +148,10 @@ If `--role-arn` is not provided, `create_batch_copy_jobs.py` auto-creates a leas
 - All scoped to the caller's account via `s3:ResourceAccount` condition
 
 The role name and cleanup commands are printed after job creation.
+
+## Limitations
+
+- KMS-encrypted objects are not supported. Objects encrypted with AWS KMS (SSE-KMS) will fail during the batch copy operation because the auto-created IAM role does not include KMS permissions. If your bucket uses SSE-KMS, consider using [DataSync](../s3-cross-region-copy-using-aws-datasync/) instead.
 
 ## License
 

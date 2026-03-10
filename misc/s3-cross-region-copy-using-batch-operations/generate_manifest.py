@@ -65,6 +65,7 @@ Examples:
 
 import argparse
 import atexit
+import json
 import logging
 import os
 import shutil
@@ -122,7 +123,10 @@ def _check_bucket_accessible(s3, bucket, label):
         if code == "403":
             log.error("%s bucket %s exists but access is denied", label, bucket)
             sys.exit(1)
-        return False
+        if code == "404":
+            return False
+        log.error("%s bucket %s: HeadBucket failed with HTTP %s", label, bucket, code)
+        sys.exit(1)
 
 
 def validate_inputs(args, s3_source, s3_manifest):
@@ -142,6 +146,21 @@ def validate_inputs(args, s3_source, s3_manifest):
         if args.manifest_region != "us-east-1":
             params["CreateBucketConfiguration"] = {"LocationConstraint": args.manifest_region}
         s3_manifest.create_bucket(**params)
+        s3_manifest.put_public_access_block(Bucket=args.manifest_bucket, PublicAccessBlockConfiguration={
+            "BlockPublicAcls": True, "IgnorePublicAcls": True,
+            "BlockPublicPolicy": True, "RestrictPublicBuckets": True,
+        })
+        s3_manifest.put_bucket_encryption(Bucket=args.manifest_bucket, ServerSideEncryptionConfiguration={
+            "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}, "BucketKeyEnabled": True}],
+        })
+        s3_manifest.put_bucket_policy(Bucket=args.manifest_bucket, Policy=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{"Sid": "DenyInsecureTransport", "Effect": "Deny",
+                           "Principal": "*", "Action": "s3:*", "Resource": [
+                               f"arn:aws:s3:::{args.manifest_bucket}",
+                               f"arn:aws:s3:::{args.manifest_bucket}/*"],
+                           "Condition": {"Bool": {"aws:SecureTransport": "false"}}}],
+        }))
 
 
 def generate_manifests(args, s3_source, workdir):
