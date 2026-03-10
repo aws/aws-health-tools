@@ -1,6 +1,6 @@
 # S3 Cross-Region Copy Using Batch Operations
 
-Copy S3 objects across regions using S3 Batch Operations with pre-generated CSV manifests.
+Use these scripts to copy S3 objects across regions using S3 Batch Operations. The scripts will generate CSV manifests from the source bucket, auto-create the destination and report buckets (with public access blocked, encryption, and versioning mirrored from the source), create a least-privilege IAM role for the batch job, and submit one S3 Batch Operations job per manifest. Objects larger than 5 GB are written to a separate manifest (`{manifest-key}-large.csv`) for handling with multipart copy or other tooling.
 
 ## Overview
 

@@ -8,7 +8,7 @@ We have two great tools to assist in your data replication efforts. Use the tool
 
 # Batch Operations Quick Start Guide
 
-Put stuff here
+See the scripts and documentation in [s3-cross-region-copy-using-batch-operations](../s3-cross-region-copy-using-batch-operations/).
 
 # DataSync Quick Start Guide
 
