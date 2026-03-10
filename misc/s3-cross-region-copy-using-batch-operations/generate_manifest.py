@@ -302,6 +302,32 @@ def main():
     log.info("Total objects:            %d", standard_count + large_count)
     log.info("Manifest format:          S3BatchOperations_CSV_20180820")
 
+    # Print next-step commands
+    log.info("")
+    log.info("--- Next steps ---")
+    profile_flag = f" \\\n        --profile {args.profile}" if args.profile else ""
+    if standard_count > 0 and not args.local_only:
+        versions_flag = " \\\n        --include-versions" if args.include_versions else ""
+        log.info("")
+        log.info("Copy standard objects (<=5GB) via S3 Batch Operations:")
+        log.info("    python create_batch_copy_jobs.py \\")
+        log.info("        --source-bucket %s \\", args.bucket)
+        log.info("        --source-region %s \\", args.source_region)
+        log.info("        --destination-region <DEST_REGION> \\")
+        log.info("        --manifest-bucket %s \\", args.manifest_bucket)
+        log.info("        --manifest-key %s%s%s", args.manifest_key, versions_flag, profile_flag)
+    if large_count > 0:
+        if args.local_only:
+            manifest_path = os.path.join(os.path.abspath(workdir), "large.csv")
+        else:
+            manifest_path = f"s3://{args.manifest_bucket}/{args.manifest_key}-large.csv"
+        log.info("")
+        log.info("Copy large objects (>5GB) preserving multipart structure:")
+        log.info("    python copy_large_objects.py \\")
+        log.info("        --manifest %s \\", manifest_path)
+        log.info("        --dest-bucket <DEST_BUCKET> \\")
+        log.info("        --dest-region <DEST_REGION>%s", profile_flag)
+
 
 if __name__ == "__main__":
     main()
