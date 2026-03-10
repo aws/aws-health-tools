@@ -1,6 +1,18 @@
-# Quick Start Guide
+# Introduction
 
-Use this guide to configure DataSync tasks for data replication between AWS S3 buckets in different regions.
+We have two great tools to assist in your data replication efforts. Use the tool that best aligns to your data set:
+
+[S3 Batch Operations](#batch-operations-quick-start-guide) - If all of your objects are < 5GB, we recommend using S3 Batch Operations. It is the fastest, most scalable way to move a large amount of objects cross region. If you are unsure of the size of your objects, run BOPS and it will tell you in the first stage of its execution.
+
+[DataSync](#datasync-quick-start-guide) - For small buckets (e.g. <100TB), or buckets with containing large objects (> 5GB), we recommend DataSync. It is also an easy and effective way to replicate objects across regions.
+
+# Batch Operations Quick Start Guide
+
+Put stuff here
+
+# DataSync Quick Start Guide
+
+Use this guide to configure DataSync tasks for data replication between AWS S3 buckets in different regions.  The script will add the needed IAM Roles, DataSync locations, run the DataSync tasks, and save the ARNs of any created resources to a JSON file for later use.
 
 ## Requirements
 
@@ -36,7 +48,9 @@ for your data copy jobs:
 2. Check the status of your DataSync tasks - check_task_status.py
 3. Delete the DataSync tasks - cleanup_datasync_tasks.py
 
-### Run create_datasync_task.py:
+---
+
+### Create and Run DataSync tasks: create_datasync_task.py:
 
 This step will create a DataSync task to copy data from your source to destination bucket. It
 can also optionally start the DataSync task, or you can start it yourself via the AWS DataSync console
@@ -48,7 +62,7 @@ You will provide:
 
 - The source bucket and optionally its region (default region is me-central-1)
 - The destination bucket and its region
-- Optionally, you can have the script run the create DataSync task
+- Optionally, you can have the script run the DataSync task (using `--start` option, as shown below)
 
 ```bash
 python create_datasync_task.py \
@@ -59,16 +73,16 @@ python create_datasync_task.py \
     --start
 ```
 
-This automatically:
+The above command automatically:
 - Creates IAM roles (source read-only, destination write)
 - Creates DataSync locations
 - Creates DataSync enhanced mode task
 - Saves to `datasync_tasks.json`
 - Runs the created DataSync task
 
-More options are covered later in the README.
+---
 
-### Run check_task_status.py
+### Monitor the progress of the DataSync tasks: check_task_status.py
 
 This command helps you monitor the DataSync tasks created by the create_datasync_task.py script.  You can run
 the script multiple times manually or you can pass the `--monitor` option to have the script poll for
@@ -84,7 +98,9 @@ Same as above, but the script will poll for you:
 python check_task_status.py --monitor
 ```
 
-### Run cleanup_datasync_tasks.py
+---
+
+### Cleanup the DataSync tasks when you are done: cleanup_datasync_tasks.py
 
 This step is optional, but can be useful if you do not intend to run the DataSync tasks again.
 
@@ -252,7 +268,8 @@ python create_datasync_task.py --csv-file tasks.csv --test-mode
 
 ## Test Mode
 
-Test mode allows you to run tasks with a small subset of files before running the full transfer.
+When using CSV batch processing, test mode allows you to run tasks with a small subset of files 
+before running the full transfer.
 
 ### Usage
 
@@ -326,7 +343,7 @@ Delete all resources (buckets are never deleted):
 python cleanup_datasync_tasks.py
 ```
 
-## What Gets Created
+## What gets created when the create_datasync_task.py script runs
 
 1. **Destination Bucket** (if omitted):
    - Name: `{source-bucket}-{dest-region}` (truncated to 63 chars)
