@@ -47,6 +47,27 @@ This lists every object in `my-source-bucket` and uploads CSV manifests to `s3:/
 | `--include-versions` | No | off | Include `VersionId` in manifest (for versioned buckets) |
 | `--profile` | No | default | AWS CLI profile name |
 
+#### Checking for Objects Larger Than 5 GB
+
+Before creating batch copy jobs, you can check whether your bucket contains objects larger than 5 GB by running `generate_manifest.py` with `--local-only`:
+
+```bash
+python generate_manifest.py \
+  --bucket my-source-bucket \
+  --source-region me-central-1 \
+  --local-only
+```
+
+The summary output will show the breakdown:
+
+```
+Standard objects (<=5GB): 999850
+Large objects (>5GB):     150
+Total objects:            1000000
+```
+
+If `Large objects` is 0, all objects can be copied with S3 Batch Operations. If there are large objects, they are written to a separate `large.csv` manifest in the output directory and need to be handled with multipart copy or another tool such as [DataSync](../s3-cross-region-copy-using-aws-datasync/).
+
 ### Step 2 — Create Batch Copy Jobs
 
 ```bash

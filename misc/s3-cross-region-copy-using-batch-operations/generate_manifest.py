@@ -100,10 +100,14 @@ def parse_args():
     p.add_argument("--bucket", required=True, help="Source S3 bucket name")
     p.add_argument("--prefix", default="", help="Only include objects under this prefix")
     p.add_argument("--source-region", required=True, help="Source bucket region")
-    p.add_argument("--manifest-bucket", required=True, help="S3 bucket to upload manifests to")
+    p.add_argument("--manifest-bucket", default=None, help="S3 bucket to upload manifests to (required unless --local-only)")
     p.add_argument("--manifest-key", default=None, help="Base key for manifests in S3 (default: {bucket}-manifest)")
     p.add_argument("--manifest-region", default=None, help="Manifest bucket region (default: source bucket region)")
     p.add_argument("--include-versions", action="store_true", help="Include version IDs in manifest")
+    p.add_argument("--local-only", action="store_true",
+                   help="Write manifests to a local directory and skip S3 upload. "
+                        "Use --output-dir to control where files are written (default: ./manifests).")
+    p.add_argument("--output-dir", default=None, help="Local output directory for --local-only (default: ./manifests)")
     p.add_argument("--profile", default=None, help="AWS CLI profile name")
     return p.parse_args()
 
@@ -240,17 +244,25 @@ def upload_manifests(s3_manifest, args, workdir, num_parts, standard_count, larg
 
 def main():
     args = parse_args()
+    if not args.local_only and not args.manifest_bucket:
+        log.error("--manifest-bucket is required unless --local-only is set")
+        sys.exit(1)
+
     args.manifest_region = args.manifest_region or args.source_region
     args.manifest_key = args.manifest_key or f"{args.bucket}-manifest"
 
     session = _get_session(args.profile)
     s3_source = get_s3_client(session, args.source_region)
-    s3_manifest = get_s3_client(session, args.manifest_region)
 
-    validate_inputs(args, s3_source, s3_manifest)
-
-    workdir = tempfile.mkdtemp(prefix="s3manifest_")
-    atexit.register(shutil.rmtree, workdir, ignore_errors=True)
+    if args.local_only:
+        outdir = args.output_dir or os.path.join(".", "manifests")
+        os.makedirs(outdir, exist_ok=True)
+        workdir = outdir
+    else:
+        s3_manifest = get_s3_client(session, args.manifest_region)
+        validate_inputs(args, s3_source, s3_manifest)
+        workdir = tempfile.mkdtemp(prefix="s3manifest_")
+        atexit.register(shutil.rmtree, workdir, ignore_errors=True)
 
     log.info("Listing objects in s3://%s/%s ...", args.bucket, args.prefix)
     num_parts, standard_count, large_count = generate_manifests(args, s3_source, workdir)
@@ -259,10 +271,13 @@ def main():
         log.info("No objects found in s3://%s/%s — nothing to upload.", args.bucket, args.prefix)
         return
 
-    uploaded = upload_manifests(s3_manifest, args, workdir, num_parts, standard_count, large_count)
+    if args.local_only:
+        log.info("Manifests written to %s", os.path.abspath(workdir))
+    else:
+        upload_manifests(s3_manifest, args, workdir, num_parts, standard_count, large_count)
 
     log.info("--- Summary ---")
-    log.info("Standard manifest parts: %d", uploaded)
+    log.info("Standard manifest parts: %d", num_parts if standard_count > 0 else 0)
     log.info("Standard objects (<=5GB): %d", standard_count)
     log.info("Large objects (>5GB):     %d", large_count)
     log.info("Total objects:            %d", standard_count + large_count)

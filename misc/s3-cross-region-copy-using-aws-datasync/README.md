@@ -2,7 +2,7 @@
 
 We have two great tools to assist in your data replication efforts. Use the tool that best aligns to your data set:
 
-[S3 Batch Operations](#batch-operations-quick-start-guide) - If all of your objects are < 5GB, we recommend using S3 Batch Operations. It is the fastest, most scalable way to move a large amount of objects cross region. If you are unsure of the size of your objects, run BOPS and it will tell you in the first stage of its execution.
+[S3 Batch Operations](#batch-operations-quick-start-guide) - If all of your objects are < 5GB, we recommend using S3 Batch Operations. It is the fastest, most scalable way to move a large amount of objects cross region. If you are unsure of the size of your objects, you can check by running the [`generate_manifest.py`](../s3-cross-region-copy-using-batch-operations/) script in the `s3-cross-region-copy-using-batch-operations` folder — it will split objects into standard (≤5 GB) and large (>5 GB) categories and report the counts.
 
 [DataSync](#datasync-quick-start-guide) - For small buckets (e.g. <100TB), or buckets containing large objects (> 5GB), we recommend DataSync. It is also an easy and effective way to replicate objects across regions.
 
