@@ -1,4 +1,4 @@
-source_bucket,source_region,dest_region,dest_bucket,throughput_mbps,log_level,include_filter,task_name
+source_bucket,source_region,dest_region,dest_bucket,throughput_mibps,log_level,include_filter,task_name
 my-bucket-1,me-central-1,us-east-1,,250,BASIC,/test/*,Transfer to US East
 my-bucket-2,me-central-1,eu-west-1,my-custom-dest-bucket,100,TRANSFER,/sample/*.txt,Transfer to EU West
 my-bucket-3,us-west-2,ap-south-1,,250,OFF,,Transfer to AP South

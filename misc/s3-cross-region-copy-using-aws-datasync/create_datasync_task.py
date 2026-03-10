@@ -27,7 +27,7 @@ Usage:
         --source-region SOURCE_REGION \\
         --dest-bucket DEST_BUCKET \\
         --dest-region DEST_REGION \\
-        [--throughput-mbps THROUGHPUT] \\
+        [--throughput-mibps THROUGHPUT] \\
         [--source-role-arn ROLE_ARN] \\
         [--dest-role-arn ROLE_ARN] \\
         [--task-name TASK_NAME]
@@ -38,7 +38,7 @@ Example:
         --source-region me-central-1 \\
         --dest-bucket my-dest-bucket \\
         --dest-region us-east-1 \\
-        --throughput-mbps 100 \\
+        --throughput-mibps 100 \\
         --task-name my-transfer-task
 """
 
@@ -56,7 +56,7 @@ from botocore.config import Config
 # Configure boto3 with increased retries
 BOTO3_CONFIG = Config(retries={'max_attempts': 10, 'mode': 'standard'})
 
-DEFAULT_THROUGHPUT_MBPS = 100
+DEFAULT_THROUGHPUT_MIBPS = 100
 DEFAULT_OUTPUT_FILE = "datasync_tasks.json"
 DEFAULT_SOURCE_REGION = "me-central-1"
 DEFAULT_LOG_LEVEL = "BASIC"
@@ -192,7 +192,7 @@ def validate_csv_format(file_path):
     Validate CSV file format and return list of task configurations.
     
     Required columns: source_bucket, dest_region
-    Optional columns: source_region, dest_bucket, throughput_mbps, source_role_arn, dest_role_arn, task_name, log_level, include_filter
+    Optional columns: source_region, dest_bucket, throughput_mibps, source_role_arn, dest_role_arn, task_name, log_level, include_filter
     
     Returns:
         List of dictionaries with task configurations
@@ -201,7 +201,7 @@ def validate_csv_format(file_path):
         ValueError if CSV format is invalid
     """
     required_columns = {'source_bucket', 'dest_region'}
-    optional_columns = {'source_region', 'dest_bucket', 'throughput_mbps', 'source_role_arn', 'dest_role_arn', 
+    optional_columns = {'source_region', 'dest_bucket', 'throughput_mibps', 'source_role_arn', 'dest_role_arn', 
                        'task_name', 'log_level', 'include_filter'}
     valid_columns = required_columns | optional_columns
     
@@ -238,13 +238,13 @@ def validate_csv_format(file_path):
                         raise ValueError(f"Row {row_num}: '{col}' cannot be empty")
                 
                 # Convert throughput to int if provided
-                if normalized_row.get('throughput_mbps'):
+                if normalized_row.get('throughput_mibps'):
                     try:
-                        normalized_row['throughput_mbps'] = int(normalized_row['throughput_mbps'])
+                        normalized_row['throughput_mibps'] = int(normalized_row['throughput_mibps'])
                     except ValueError:
-                        raise ValueError(f"Row {row_num}: 'throughput_mbps' must be a number")
+                        raise ValueError(f"Row {row_num}: 'throughput_mibps' must be a number")
                 else:
-                    normalized_row['throughput_mbps'] = DEFAULT_THROUGHPUT_MBPS
+                    normalized_row['throughput_mibps'] = DEFAULT_THROUGHPUT_MIBPS
                 
                 # Set default source region if not provided
                 if not normalized_row.get('source_region'):
@@ -469,7 +469,7 @@ def start_datasync_task(task_arn, region, include_filter=None):
         return None
 
 
-def create_datasync_task(source_bucket, source_region, dest_bucket, dest_region, throughput_mbps, 
+def create_datasync_task(source_bucket, source_region, dest_bucket, dest_region, throughput_mibps, 
                          source_role_arn=None, dest_role_arn=None, task_name=None, 
                          output_file=None, start_task=False, log_level=DEFAULT_LOG_LEVEL, 
                          include_filter=None):
@@ -481,7 +481,7 @@ def create_datasync_task(source_bucket, source_region, dest_bucket, dest_region,
         source_region: Source AWS region
         dest_bucket: Destination S3 bucket name (None to auto-create)
         dest_region: Destination AWS region
-        throughput_mbps: Throughput limit in Mbps
+        throughput_mibps: Throughput limit in MiBps
         source_role_arn: Optional IAM role ARN for source location (created if not provided)
         dest_role_arn: Optional IAM role ARN for destination location (created if not provided)
         task_name: Optional task name
@@ -506,7 +506,7 @@ def create_datasync_task(source_bucket, source_region, dest_bucket, dest_region,
     print(f"   Source: s3://{source_bucket} ({source_region})")
     print(f"   Destination: s3://{dest_bucket} ({dest_region})")
     print(f"   Task region: {dest_region}")
-    print(f"   Throughput limit: {throughput_mbps} Mbps")
+    print(f"   Throughput limit: {throughput_mibps} MiBps")
     print(f"   CloudWatch logging: {log_level}\n")
     
     # Track whether roles were created
@@ -554,7 +554,7 @@ def create_datasync_task(source_bucket, source_region, dest_bucket, dest_region,
     }
     
     # Add throughput limit (bandwidth limit in bytes/second)
-    throughput_bytes_per_sec = throughput_mbps * 1024 * 1024 // 8
+    throughput_bytes_per_sec = throughput_mibps * 1024 * 1024 // 8
     task_params['Options']['BytesPerSecond'] = throughput_bytes_per_sec
     
     # Add CloudWatch logging level
@@ -627,7 +627,7 @@ def create_datasync_task(source_bucket, source_region, dest_bucket, dest_region,
             "role_arn": dest_role_arn,
             "role_created": dest_role_created
         },
-        "throughput_mbps": throughput_mbps,
+        "throughput_mibps": throughput_mibps,
         "log_level": log_level
     }
     
@@ -670,10 +670,10 @@ def main():
         help='Destination AWS region (e.g., us-east-1, eu-west-1)'
     )
     parser.add_argument(
-        '--throughput-mbps',
+        '--throughput-mibps',
         type=int,
-        default=DEFAULT_THROUGHPUT_MBPS,
-        help=f'Throughput limit in Mbps (default: {DEFAULT_THROUGHPUT_MBPS} Mbps)'
+        default=DEFAULT_THROUGHPUT_MIBPS,
+        help=f'Throughput limit in MiB/s (default: {DEFAULT_THROUGHPUT_MIBPS} MiB/s)'
     )
     parser.add_argument(
         '--log-level',
@@ -757,7 +757,7 @@ def main():
                     source_region=task_config['source_region'],
                     dest_bucket=task_config.get('dest_bucket'),
                     dest_region=task_config['dest_region'],
-                    throughput_mbps=task_config['throughput_mbps'],
+                    throughput_mibps=task_config['throughput_mibps'],
                     source_role_arn=task_config.get('source_role_arn'),
                     dest_role_arn=task_config.get('dest_role_arn'),
                     task_name=task_config.get('task_name'),
@@ -812,7 +812,7 @@ def main():
                 source_region=args.source_region,
                 dest_bucket=args.dest_bucket,
                 dest_region=args.dest_region,
-                throughput_mbps=args.throughput_mbps,
+                throughput_mibps=args.throughput_mibps,
                 source_role_arn=args.source_role_arn,
                 dest_role_arn=args.dest_role_arn,
                 task_name=args.task_name,

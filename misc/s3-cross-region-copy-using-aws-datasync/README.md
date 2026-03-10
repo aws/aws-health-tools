@@ -4,7 +4,7 @@ We have two great tools to assist in your data replication efforts. Use the tool
 
 [S3 Batch Operations](#batch-operations-quick-start-guide) - If all of your objects are < 5GB, we recommend using S3 Batch Operations. It is the fastest, most scalable way to move a large amount of objects cross region. If you are unsure of the size of your objects, run BOPS and it will tell you in the first stage of its execution.
 
-[DataSync](#datasync-quick-start-guide) - For small buckets (e.g. <100TB), or buckets with containing large objects (> 5GB), we recommend DataSync. It is also an easy and effective way to replicate objects across regions.
+[DataSync](#datasync-quick-start-guide) - For small buckets (e.g. <100TB), or buckets containing large objects (> 5GB), we recommend DataSync. It is also an easy and effective way to replicate objects across regions.
 
 # Batch Operations Quick Start Guide
 
@@ -126,7 +126,7 @@ python cleanup_datasync_tasks.py
 ### Optional
 - `--source-region` - Source AWS region (default: me-central-1)
 - `--dest-bucket` - Destination bucket name (omit to auto-create)
-- `--throughput-mbps` - Throughput limit in Mbps (default: 100)
+- `--throughput-mibps` - Throughput limit in MiB/s (default: 100 MiB/s)
 - `--log-level` - CloudWatch logging level: OFF, BASIC, TRANSFER (default: BASIC)
 - `--source-role-arn` - IAM role ARN for source (omit to auto-create)
 - `--dest-role-arn` - IAM role ARN for destination (omit to auto-create)
@@ -176,7 +176,7 @@ python create_datasync_task.py \
 python create_datasync_task.py \
     --source-bucket my-bucket \
     --dest-region us-east-1 \
-    --throughput-mbps 100
+    --throughput-mibps 100
 ```
 
 ### Custom CloudWatch Logging
@@ -230,12 +230,12 @@ If you have many buckets to copy, you can provide a list of the details in a CSV
 
 **Required columns**: `source_bucket`, `dest_region`
 
-**Optional columns**: `source_region`, `dest_bucket`, `throughput_mbps`, `source_role_arn`, `dest_role_arn`, `task_name`, `log_level`, `include_filter`
+**Optional columns**: `source_region`, `dest_bucket`, `throughput_mibps`, `source_role_arn`, `dest_role_arn`, `task_name`, `log_level`, `include_filter`
 
 ### Example CSV
 
 ```csv
-source_bucket,source_region,dest_region,throughput_mbps,log_level,include_filter,task_name
+source_bucket,source_region,dest_region,throughput_mibps,log_level,include_filter,task_name
 bucket1,me-central-1,us-east-1,250,BASIC,/test/*,Transfer to US East
 bucket2,us-west-2,eu-west-1,100,TRANSFER,/sample/*.txt,Transfer to EU West
 bucket3,ap-south-1,us-east-1,250,OFF,,Transfer to AP South
