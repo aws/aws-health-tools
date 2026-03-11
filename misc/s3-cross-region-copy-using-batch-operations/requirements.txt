@@ -1,1 +1,6 @@
 boto3>=1.26.0
+
+# Test dependencies
+pytest>=8.0
+moto[s3,iam,sts]>=5.0
+pytest-mock>=3.14.0

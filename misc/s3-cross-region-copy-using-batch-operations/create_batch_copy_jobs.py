@@ -78,6 +78,12 @@ Examples:
         --destination-region eu-west-1 \\
         --manifest-bucket my-manifest-bucket \\
         --role-arn arn:aws:iam::123456789012:role/MyBatchCopyRole
+
+Limitations:
+    S3 Batch Operations uses S3PutObjectCopy which performs a single-part copy regardless of how the
+    source object was originally uploaded. Copied objects will have a standard (non-multipart) ETag
+    even if the source was uploaded as a multipart upload. Use ``copy_large_objects.py`` for objects
+    that require multipart part structure and ETag preservation.
 """
 
 import argparse
