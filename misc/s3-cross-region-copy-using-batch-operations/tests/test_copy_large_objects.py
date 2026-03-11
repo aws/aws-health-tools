@@ -144,6 +144,176 @@ def test_check_bucket_accessible_errors(code):
 
 
 # ---------------------------------------------------------------------------
+# parse_args — dry-run defaults and --no-dry-run
+# ---------------------------------------------------------------------------
+def test_parse_args_dry_run_default():
+    with patch.object(sys, "argv", ["prog", "--manifest", "m.csv", "--dest-bucket", "b", "--dest-region", "r"]):
+        args = mod.parse_args()
+    assert args.dry_run is True
+
+
+def test_parse_args_no_dry_run():
+    with patch.object(sys, "argv", ["prog", "--manifest", "m.csv", "--dest-bucket", "b", "--dest-region", "r", "--no-dry-run"]):
+        args = mod.parse_args()
+    assert args.dry_run is False
+
+
+# ---------------------------------------------------------------------------
+# parse_args — concurrency bounds
+# ---------------------------------------------------------------------------
+def test_parse_args_concurrency_max():
+    with patch.object(sys, "argv", ["prog", "--manifest", "m.csv", "--dest-bucket", "b", "--dest-region", "r", "--concurrency", "32"]):
+        args = mod.parse_args()
+    assert args.concurrency == 32
+
+
+def test_parse_args_concurrency_over_max():
+    with patch.object(sys, "argv", ["prog", "--manifest", "m.csv", "--dest-bucket", "b", "--dest-region", "r", "--concurrency", "33"]):
+        with pytest.raises(SystemExit):
+            mod.parse_args()
+
+
+def test_parse_args_concurrency_zero():
+    with patch.object(sys, "argv", ["prog", "--manifest", "m.csv", "--dest-bucket", "b", "--dest-region", "r", "--concurrency", "0"]):
+        with pytest.raises(SystemExit):
+            mod.parse_args()
+
+
+# ---------------------------------------------------------------------------
+# _copy_object — dry-run skips all writes
+# ---------------------------------------------------------------------------
+def test_copy_object_dry_run_simple():
+    src, dst = MagicMock(), MagicMock()
+    src.head_object.return_value = {
+        "ETag": '"abc123"',
+        "ContentLength": 1024,
+        "ContentType": "text/plain",
+        "Metadata": {},
+    }
+
+    key, ok, err = mod._copy_object(src, dst, "src-bkt", "file.txt", None, "dst-bkt", "", dry_run=True)
+    assert (key, ok, err) == ("file.txt", True, None)
+    src.head_object.assert_called_once()
+    dst.copy_object.assert_not_called()
+    dst.create_multipart_upload.assert_not_called()
+    src.get_object_tagging.assert_not_called()
+
+
+def test_copy_object_dry_run_multipart():
+    src, dst = MagicMock(), MagicMock()
+    src.head_object.return_value = {
+        "ETag": '"abc123-3"',
+        "ContentLength": 15_000_000_000,
+        "ContentType": "application/octet-stream",
+        "Metadata": {},
+    }
+
+    key, ok, err = mod._copy_object(src, dst, "src-bkt", "big.bin", None, "dst-bkt", "", dry_run=True)
+    assert (key, ok, err) == ("big.bin", True, None)
+    src.head_object.assert_called_once()
+    dst.copy_object.assert_not_called()
+    dst.create_multipart_upload.assert_not_called()
+    dst.upload_part_copy.assert_not_called()
+    src.get_object_tagging.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _copy_object — simple copy preserves StorageClass
+# ---------------------------------------------------------------------------
+def test_copy_object_simple_preserves_storage_class():
+    src, dst = MagicMock(), MagicMock()
+    src.head_object.return_value = {
+        "ETag": '"abc123"',
+        "ContentLength": 1024,
+        "ContentType": "text/plain",
+        "Metadata": {},
+        "StorageClass": "GLACIER",
+    }
+
+    mod._copy_object(src, dst, "src-bkt", "file.txt", None, "dst-bkt", "")
+    call_kwargs = dst.copy_object.call_args.kwargs
+    assert call_kwargs["StorageClass"] == "GLACIER"
+
+
+def test_copy_object_simple_no_storage_class_omits_it():
+    src, dst = MagicMock(), MagicMock()
+    src.head_object.return_value = {
+        "ETag": '"abc123"',
+        "ContentLength": 1024,
+        "ContentType": "text/plain",
+        "Metadata": {},
+    }
+
+    mod._copy_object(src, dst, "src-bkt", "file.txt", None, "dst-bkt", "")
+    call_kwargs = dst.copy_object.call_args.kwargs
+    assert "StorageClass" not in call_kwargs
+
+
+# ---------------------------------------------------------------------------
+# _copy_object — simple copy uses TaggingDirective=COPY
+# ---------------------------------------------------------------------------
+def test_copy_object_simple_uses_tagging_directive_copy():
+    src, dst = MagicMock(), MagicMock()
+    src.head_object.return_value = {
+        "ETag": '"abc123"',
+        "ContentLength": 1024,
+        "ContentType": "text/plain",
+        "Metadata": {},
+    }
+
+    mod._copy_object(src, dst, "src-bkt", "file.txt", None, "dst-bkt", "")
+    call_kwargs = dst.copy_object.call_args.kwargs
+    assert call_kwargs["TaggingDirective"] == "COPY"
+    # Should NOT call get_object_tagging for simple copies
+    src.get_object_tagging.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# main — multi-bucket manifest rejected
+# ---------------------------------------------------------------------------
+def test_main_rejects_multi_bucket_manifest(tmp_path):
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text("bucket-a,key1\nbucket-b,key2\n")
+
+    test_args = [
+        "prog",
+        "--manifest", str(manifest),
+        "--dest-bucket", "dst-bkt",
+        "--dest-region", "us-east-1",
+        "--no-dry-run",
+    ]
+    with patch.object(sys, "argv", test_args), pytest.raises(SystemExit):
+        mod.main()
+
+
+# ---------------------------------------------------------------------------
+# main — dry-run does not copy objects
+# ---------------------------------------------------------------------------
+@mock_aws
+def test_main_dry_run_no_copies(tmp_path, populate_bucket):
+    session = boto3.Session()
+    s3 = session.client("s3", region_name="us-east-1")
+    populate_bucket(s3, "src-bkt", [("file1.txt", 10)])
+    populate_bucket(s3, "dst-bkt", [])
+
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text("src-bkt,file1.txt\n")
+
+    test_args = [
+        "prog",
+        "--manifest", str(manifest),
+        "--dest-bucket", "dst-bkt",
+        "--dest-region", "us-east-1",
+    ]
+    with patch.object(sys, "argv", test_args):
+        mod.main()
+
+    # Destination bucket should be empty — dry-run doesn't copy
+    resp = s3.list_objects_v2(Bucket="dst-bkt")
+    assert resp.get("KeyCount", 0) == 0
+
+
+# ---------------------------------------------------------------------------
 # _copy_object — simple (non-multipart)
 # ---------------------------------------------------------------------------
 def test_copy_object_simple():
@@ -287,6 +457,7 @@ def test_main_simple_copy(tmp_path, populate_bucket):
         "--manifest", str(manifest),
         "--dest-bucket", "dst-bkt",
         "--dest-region", "us-east-1",
+        "--no-dry-run",
     ]
     with patch.object(sys, "argv", test_args):
         mod.main()

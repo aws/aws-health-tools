@@ -4,10 +4,11 @@ Use these scripts to copy S3 objects across regions using S3 Batch Operations. T
 
 ## Overview
 
-This tool provides two scripts that work together:
+This tool provides three scripts that work together:
 
 1. **`generate_manifest.py`** — Lists objects in a source bucket and produces CSV manifest files compatible with S3 Batch Operations.
 2. **`create_batch_copy_jobs.py`** — Creates S3 Batch Operations copy jobs using the manifests generated in the previous step.
+3. **`copy_large_objects.py`** — Copies objects larger than 5 GB across regions using the multipart copy API, preserving original part structure and ETags.
 
 Objects are split into two categories:
 - **Standard** (≤ 5 GB) — copied via S3 Batch Operations `S3PutObjectCopy`
@@ -66,7 +67,7 @@ Large objects (>5GB):     150
 Total objects:            1000000
 ```
 
-If `Large objects` is 0, all objects can be copied with S3 Batch Operations. If there are large objects, they are written to a separate `large.csv` manifest in the output directory and need to be handled with multipart copy or another tool such as [DataSync](../s3-cross-region-copy-using-aws-datasync/).
+If `Large objects` is 0, all objects can be copied with S3 Batch Operations. If there are large objects, they are written to a separate `large.csv` manifest in the output directory and need to be handled with `copy_large_objects.py` (Step 3) or another tool such as [DataSync](../s3-cross-region-copy-using-aws-datasync/).
 
 ### Step 2 — Create Batch Copy Jobs
 
@@ -104,6 +105,40 @@ This auto-discovers all `manifests/my-job-*.csv` files and creates one S3 Batch 
 | `--include-versions` | No | off | Manifest includes VersionId column |
 | `--profile` | No | default | AWS CLI profile name |
 
+### Step 3 — Copy Large Objects
+
+Objects larger than 5 GB cannot be copied by S3 Batch Operations. Use `copy_large_objects.py` to copy them using the multipart copy API while preserving the original part structure so ETags match.
+
+**The script runs in dry-run mode by default** — it validates source objects and logs what would be copied without writing anything. Pass `--no-dry-run` to perform the actual copy.
+
+```bash
+# Dry-run (default) — see what would be copied
+python copy_large_objects.py \
+  --manifest s3://my-manifest-bucket/my-source-bucket-manifest-large.csv \
+  --dest-bucket my-dest-bucket \
+  --dest-region eu-west-1
+
+# Actual copy
+python copy_large_objects.py \
+  --manifest s3://my-manifest-bucket/my-source-bucket-manifest-large.csv \
+  --dest-bucket my-dest-bucket \
+  --dest-region eu-west-1 \
+  --no-dry-run
+```
+
+#### Options
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--manifest` | Yes | — | Path to CSV manifest file — local path or S3 URI (`s3://bucket/key`) |
+| `--dest-bucket` | Yes | — | Destination S3 bucket name |
+| `--dest-region` | Yes | — | Destination bucket region |
+| `--dest-prefix` | No | (none) | Prefix to prepend to destination keys |
+| `--profile` | No | default | AWS CLI profile name |
+| `--concurrency` | No | `10` | Number of parallel copy threads (max: 32) |
+| `--dry-run` | No | on | Show what would be copied without actually copying (default) |
+| `--no-dry-run` | No | off | Perform the actual copy |
+
 ## End-to-End Example
 
 ```bash
@@ -125,6 +160,21 @@ python create_batch_copy_jobs.py \
   --manifest-region eu-west-1 \
   --include-versions \
   --profile prod
+
+# 3. Copy large objects (dry-run first, then actual copy)
+python copy_large_objects.py \
+  --manifest s3://batch-manifests/prod-data-me-central-1-manifest-large.csv \
+  --dest-bucket prod-data-me-central-1-eu-west-1 \
+  --dest-region eu-west-1 \
+  --profile prod
+
+# Review dry-run output, then run for real:
+python copy_large_objects.py \
+  --manifest s3://batch-manifests/prod-data-me-central-1-manifest-large.csv \
+  --dest-bucket prod-data-me-central-1-eu-west-1 \
+  --dest-region eu-west-1 \
+  --profile prod \
+  --no-dry-run
 ```
 
 ## Manifest Format

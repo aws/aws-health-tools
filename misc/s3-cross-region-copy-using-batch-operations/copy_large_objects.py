@@ -114,7 +114,12 @@ def parse_args():
     p.add_argument("--dest-region", required=True, help="Destination bucket region")
     p.add_argument("--dest-prefix", default="", help="Prefix to prepend to destination keys")
     p.add_argument("--profile", default=None, help="AWS CLI profile name")
-    p.add_argument("--concurrency", type=int, default=10, help="Number of parallel copy threads (default: 10)")
+    p.add_argument("--concurrency", type=int, default=10, choices=range(1, 33),
+                   metavar="[1-32]", help="Number of parallel copy threads (default: 10, max: 32)")
+    p.add_argument("--dry-run", action="store_true", default=True, dest="dry_run",
+                   help="Show what would be copied without actually copying (default: enabled)")
+    p.add_argument("--no-dry-run", action="store_false", dest="dry_run",
+                   help="Perform the actual copy")
     return p.parse_args()
 
 
@@ -195,12 +200,15 @@ def _build_tagging_string(tag_set):
     )
 
 
-def _copy_object(s3_source, s3_dest, source_bucket, key, version_id, dest_bucket, dest_prefix):
+def _copy_object(s3_source, s3_dest, source_bucket, key, version_id, dest_bucket, dest_prefix,
+                 dry_run=False):
     """Copy a single object preserving original part structure so ETags match.
 
     For multipart objects, uses create_multipart_upload / upload_part_copy /
     complete_multipart_upload with byte ranges matching the original parts.
     For non-multipart objects, uses copy_object directly.
+
+    When *dry_run* is True, reads source metadata but skips all write operations.
 
     Returns (key, True, None) on success or (key, False, error_message) on failure.
     """
@@ -217,6 +225,14 @@ def _copy_object(s3_source, s3_dest, source_bucket, key, version_id, dest_bucket
         content_type = head.get("ContentType", "application/octet-stream")
         metadata = head.get("Metadata", {})
 
+        is_multipart = "-" in etag
+        part_count = int(etag.split("-")[1]) if is_multipart else 1
+
+        if dry_run:
+            log.info("[DRY RUN] Would copy: s3://%s/%s (%s bytes, %d part(s)) -> s3://%s/%s",
+                     source_bucket, key, content_length, part_count, dest_bucket, dest_key)
+            return key, True, None
+
         # Collect object properties to preserve on multipart path
         obj_props = {"ContentType": content_type, "Metadata": metadata}
         for prop in ("CacheControl", "ContentDisposition", "ContentEncoding",
@@ -224,24 +240,27 @@ def _copy_object(s3_source, s3_dest, source_bucket, key, version_id, dest_bucket
             if prop in head:
                 obj_props[prop] = head[prop]
 
-        # Get tags
+        copy_source = {"Bucket": source_bucket, "Key": key}
+        if version_id:
+            copy_source["VersionId"] = version_id
+
+        # Non-multipart: simple copy (TaggingDirective=COPY preserves tags automatically)
+        if not is_multipart:
+            copy_kwargs = {"CopySource": copy_source, "Bucket": dest_bucket, "Key": dest_key,
+                           "TaggingDirective": "COPY"}
+            if "StorageClass" in obj_props:
+                copy_kwargs["StorageClass"] = obj_props["StorageClass"]
+            s3_dest.copy_object(**copy_kwargs)
+            return key, True, None
+
+        # Multipart: get tags (create_multipart_upload has no TaggingDirective)
         tag_kwargs = {"Bucket": source_bucket, "Key": key}
         if version_id:
             tag_kwargs["VersionId"] = version_id
         tag_resp = s3_source.get_object_tagging(**tag_kwargs)
         tag_set = tag_resp.get("TagSet", [])
 
-        copy_source = {"Bucket": source_bucket, "Key": key}
-        if version_id:
-            copy_source["VersionId"] = version_id
-
-        # Non-multipart: simple copy
-        if "-" not in etag:
-            s3_dest.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_key)
-            return key, True, None
-
         # Multipart: preserve original part structure
-        part_count = int(etag.split("-")[1])
         part_sizes = _get_part_sizes(s3_source, source_bucket, key, version_id, part_count)
 
         # Initiate multipart upload
@@ -305,8 +324,16 @@ def main():
         log.info("Manifest %s is empty — nothing to copy.", args.manifest)
         return
 
+    # Validate all entries reference the same source bucket
+    source_bucket = entries[0][0]
+    other_buckets = {b for b, _, _ in entries if b != source_bucket}
+    if other_buckets:
+        log.error("Manifest contains objects from multiple source buckets: %s, %s. "
+                  "All objects must be from the same bucket.", source_bucket, ", ".join(sorted(other_buckets)))
+        sys.exit(1)
+
     # Auto-detect source region from first entry's bucket
-    source_region = _get_bucket_region(session, entries[0][0])
+    source_region = _get_bucket_region(session, source_bucket)
     log.info("Detected source bucket region: %s", source_region)
 
     s3_source = session.client("s3", region_name=source_region, config=RETRY_CONFIG)
@@ -314,28 +341,32 @@ def main():
 
     _check_bucket_accessible(s3_dest, args.dest_bucket, "Destination")
 
-    log.info("Copying %d object(s) to s3://%s/%s ...", len(entries), args.dest_bucket, args.dest_prefix)
+    mode_label = "[DRY RUN] " if args.dry_run else ""
+    log.info("%sCopying %d object(s) to s3://%s/%s ...", mode_label, len(entries), args.dest_bucket, args.dest_prefix)
+    if args.dry_run:
+        log.info("Dry-run mode is ON. No objects will be copied. Use --no-dry-run to perform the actual copy.")
 
     copied = 0
     failed = 0
     with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         futures = {
             pool.submit(_copy_object, s3_source, s3_dest, bucket, key, vid,
-                        args.dest_bucket, args.dest_prefix): key
+                        args.dest_bucket, args.dest_prefix, args.dry_run): key
             for bucket, key, vid in entries
         }
         for future in as_completed(futures):
             key, ok, err = future.result()
             if ok:
                 copied += 1
-                log.info("Copied: %s (%d/%d)", key, copied + failed, len(entries))
+                if not args.dry_run:
+                    log.info("Copied: %s (%d/%d)", key, copied + failed, len(entries))
             else:
                 failed += 1
                 log.error("FAILED: %s — %s", key, err)
 
-    log.info("--- Summary ---")
+    log.info("--- %sSummary ---", mode_label)
     log.info("Total:   %d", len(entries))
-    log.info("Copied:  %d", copied)
+    log.info("%s  %d", "Would copy:" if args.dry_run else "Copied: ", copied)
     log.info("Failed:  %d", failed)
     if failed:
         sys.exit(1)
