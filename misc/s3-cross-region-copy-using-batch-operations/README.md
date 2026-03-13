@@ -199,6 +199,10 @@ If `--role-arn` is not provided, `create_batch_copy_jobs.py` auto-creates a leas
 
 The role name and cleanup commands are printed after job creation.
 
+## Retries
+
+S3 Batch Operations has built-in extended retry with backoff to handle service outage scenarios. No customer action is needed — failed operations within a job are automatically retried.
+
 ## Limitations
 
 - KMS-encrypted objects are not supported. Objects encrypted with AWS KMS (SSE-KMS) will fail during the batch copy operation because the auto-created IAM role does not include KMS permissions. If your bucket uses SSE-KMS, consider using [DataSync](../s3-cross-region-copy-using-aws-datasync/) instead.
