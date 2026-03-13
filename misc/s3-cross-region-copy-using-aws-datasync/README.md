@@ -343,6 +343,24 @@ Delete all resources (buckets are never deleted):
 python cleanup_datasync_tasks.py
 ```
 
+## Retries
+
+DataSync tasks generally succeed thanks to retries built into the task execution. However, tasks may fail during a service outage. When they do, retrying the task is recommended. DataSync tasks only transfer objects that were not previously copied, so retrying is safe and will not duplicate data.
+
+### Manual Retry
+
+Re-run the DataSync task to pick up any objects that were not copied in a previous execution:
+
+```bash
+aws datasync start-task-execution \
+    --task-arn <TASK_ARN> \
+    --region <DEST_REGION>
+```
+
+### Recurring Schedule
+
+You can configure DataSync to automatically retry on a recurring schedule (e.g., every 6 hours) via the AWS DataSync console. Each execution will only copy objects that were not transferred in previous runs. This is useful for large buckets where a single execution may not complete all transfers.
+
 ## What gets created when the create_datasync_task.py script runs
 
 1. **Destination Bucket** (if omitted):
