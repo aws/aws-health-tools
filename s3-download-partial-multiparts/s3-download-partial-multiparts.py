@@ -51,20 +51,21 @@ def read_missing_ranges(missing_ranges_path: str) -> List[Tuple[int, int]]:
 
 def is_retry_mode(output_path: str) -> bool:
     """
-    Check if we're in retry mode (output file and .MISSINGRANGES both exist).
+    Check if we're in retry mode (.PARTIAL file and .MISSINGRANGES both exist).
     """
+    partial_path = output_path + ".PARTIAL"
     missing_ranges_path = output_path + ".MISSINGRANGES"
-    return os.path.exists(output_path) and os.path.exists(missing_ranges_path)
+    return os.path.exists(partial_path) and os.path.exists(missing_ranges_path)
 
 
 def get_part_count(s3_client, bucket: str, key: str) -> Tuple[int, int]:
     """
-    Get the total number of parts by requesting part 1.
+    Get the total number of parts by requesting metadata for part 1.
     Returns: (total_parts_count, total_object_size)
     """
     try:
-        # Request part 1 to get metadata about the multipart object
-        response = s3_client.get_object(
+        # Use HEAD request to get metadata about the multipart object without downloading data
+        response = s3_client.head_object(
             Bucket=bucket,
             Key=key,
             PartNumber=1
@@ -85,9 +86,6 @@ def get_part_count(s3_client, bucket: str, key: str) -> Tuple[int, int]:
         if content_range:
             # Parse "bytes 0-5242879/75497472" to get the total (75497472)
             total_size = int(content_range.split('/')[1])
-
-        # Consume the body
-        response['Body'].read()
 
         return parts_count, total_size
 
@@ -176,6 +174,13 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
     """
     Download a multi-part S3 object, handling missing parts gracefully.
     """
+    # Check if the final file already exists (meaning download is already complete)
+    if os.path.exists(output_path) and not os.path.exists(output_path + ".MISSINGRANGES"):
+        if verbose:
+            print(f"✓ File already exists and is complete: {output_path}")
+            print(f"  (No .MISSINGRANGES or .PARTIAL file found)")
+        return True
+
     # Create boto3 session with profile if specified
     if profile:
         session = boto3.Session(profile_name=profile)
@@ -203,7 +208,8 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
     if verbose:
         print(f"Found {parts_count} parts, total size: {total_size / (1024*1024):.2f} MB\n")
 
-    # Check if we're in retry mode
+    # Work with .PARTIAL file during download
+    partial_path = output_path + ".PARTIAL"
     missing_ranges_path = output_path + ".MISSINGRANGES"
     retry_mode = is_retry_mode(output_path)
     parts_to_retry = set()  # Part numbers to retry
@@ -227,9 +233,9 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
     failed_parts = []
 
     try:
-        # Open file in appropriate mode
+        # Open file in appropriate mode (work with .PARTIAL file)
         file_mode = 'r+b' if retry_mode else 'wb'
-        with open(output_path, file_mode) as output_file:
+        with open(partial_path, file_mode) as output_file:
             if not retry_mode and total_size > 0:
                 if verbose:
                     print(f"Pre-allocating file to {total_size / (1024*1024):.2f} MB...\n")
@@ -244,8 +250,9 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
                 skip_part = False
                 if retry_mode:
                     # Try to get metadata for this part to see its byte range
+                    # Use HEAD request instead of GET to avoid downloading the body
                     try:
-                        response = s3_client.get_object(
+                        response = s3_client.head_object(
                             Bucket=bucket,
                             Key=key,
                             PartNumber=part_num
@@ -261,9 +268,6 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
                                 skip_part = True
                                 if verbose:
                                     print(f"Skipping part {part_num} (already downloaded)... ✓")
-
-                        # Consume body to close connection
-                        response['Body'].read()
                     except:
                         # If we can't get metadata, try to download anyway
                         pass
@@ -294,8 +298,8 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
                 )
                 metadata_client = session.client('s3', config=config, region_name=region)
 
-                # Try to get just the headers
-                response = metadata_client.get_object(
+                # Use HEAD request to get just the headers without downloading body
+                response = metadata_client.head_object(
                     Bucket=bucket,
                     Key=key,
                     PartNumber=part_num
@@ -313,9 +317,6 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
                     if verbose:
                         print(f"  Part {part_num}: unknown-range")
 
-                # Consume body to close connection
-                response['Body'].read()
-
             except Exception as e:
                 # If we still can't get it, just record the part number
                 missing_ranges.append(f"part{part_num}-unknown-range")
@@ -328,7 +329,7 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
                 print(f"Retry complete:")
             else:
                 print(f"Download complete:")
-            print(f"  Output file: {output_path}")
+            print(f"  Output file: {partial_path}")
             print(f"  Total size: {total_size / (1024*1024):.2f} MB")
             if retry_mode:
                 print(f"  Parts retried: {len(successful_parts)}")
@@ -348,15 +349,22 @@ def download_multipart_object(bucket: str, key: str, output_path: str,
                 print(f"\nMissing byte ranges:")
                 for range_str in missing_ranges:
                     print(f"    {range_str}")
+                print(f"\n⚠️  File remains as {partial_path} until all parts are complete")
         else:
-            # No missing parts
-            if retry_mode and os.path.exists(missing_ranges_path):
+            # No missing parts - rename .PARTIAL to final name
+            if os.path.exists(missing_ranges_path):
                 # Delete the .MISSINGRANGES file since all parts are now complete
                 os.remove(missing_ranges_path)
                 if verbose:
                     print(f"  ✓ All parts now complete! Removed {missing_ranges_path}")
             elif verbose:
                 print(f"  ✓ All parts downloaded successfully!")
+
+            # Rename .PARTIAL to final filename
+            os.rename(partial_path, output_path)
+            if verbose:
+                print(f"  ✓ Renamed {partial_path} → {output_path}")
+                print(f"\n✓ Download complete: {output_path}")
 
         return True
 
