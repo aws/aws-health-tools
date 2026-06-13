@@ -1,5 +1,8 @@
 # Amazon EBS Volume Lost Recovery Automation using AWS Health
 
+> **⚠️ SECURITY WARNING:** These templates deploy an Elasticsearch/Kibana environment with a public-facing proxy. Ensure you restrict the `PublicCidr` parameter to your specific IP address (e.g. `1.2.3.4/32`). **Never use `0.0.0.0/0`** — it exposes the deployment to unauthenticated public access. These templates are provided for educational/workshop purposes only and should not be used in production without additional hardening (HTTPS, authentication, restrictive security groups).
+
+
 In an extremely rare scenario when an EBS volume is reported as lost due to multiple underlying hardware failure, you can recover the affected EC2 instance from a recent Amazon Machine Image (AMI) backup. In this automated solution we will do the following;
 
 * Check if the affected EBS volume is attached as a root volume of an EC2 instance. 
@@ -43,7 +46,7 @@ We have encapsulated the Elasticsearch configuration and deployment steps into a
 5. Upload the file named *step\_1\_es\_ec2proxy\_reinvent\_workshop.yml*.
 6. Click **Next**.
 7. Enter a **Stack name**. Example: `ebs-es-reinvent`
-8. Enter a public CIDR that Kibana will be accessible from. This is the public IP range that you will be accessing the dashboard from. (If you aren't sure, you can find your public IP at https://www.myip.com/ and then append a /32 suffix to it. For example, if your public IP was `1.2.3.4`, you would use: `1.2.3.4/32`. For demo purposes, you can enter the CICR as `0.0.0.0/0`).
+8. Enter a public CIDR that Kibana will be accessible from. This is the public IP range that you will be accessing the dashboard from. (If you aren't sure, you can find your public IP at https://www.myip.com/ and then append a /32 suffix to it. For example, if your public IP was `1.2.3.4`, you would use: `1.2.3.4/32`. **Security warning: Do NOT use `0.0.0.0/0` — this exposes your Elasticsearch/Kibana deployment to the entire internet without authentication.** Use your specific IP with a `/32` suffix (e.g. `1.2.3.4/32`)).
 9. Click **Next**.
 10. If desired, tag the resources by entering `Name` as the Key and `kibana_es_reinvent` as the Value.
 11. Click **Next**.
