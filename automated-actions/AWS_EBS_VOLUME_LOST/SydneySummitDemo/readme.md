@@ -27,7 +27,7 @@ Notification on update will be sent to SNS topic assigned.
 1.  Replace all **vol-xxxxxxxxxxxxxxxxx** values in the **phd-mock-payload.json** with the copied value.
 1.  Modifiy the **time** to within the past 14 days in **phd-mock-event.json**.
 1.  Post the mock event to CloudWatch using the AWS CLI command **aws events put-events --entries file://phd-mock-event.json** - this will trigger a CloudWatch Rule that will in turn launch the Step Function to replace the volume.
-1.  Open the Kibana dashboard (the URL can be found in the Outputs of the **Core Functionality** Stack)
+1.  Open the Kibana dashboard from a host inside the VPC using the URL in the Outputs of the **Core Functionality** Stack
 1. In Kibana, under **Management > Index Patterns**, create an index pattern named **phd-events** using **PhdEventTime** as the **Time Filter**.
 1. Under **Management > Saved Objects**, import **elasticsearch-objects.json**, overwriting all objects, and using **phd-events** as the new index pattern.
 1. Navigate to **Dashboard > PHD Events** to see the event(s).
@@ -38,8 +38,7 @@ Choose **Launch Stack** to launch the CloudFormation template in the US East (N.
 
 The **Core Functionality** CloudFormation template requires the following parameters:
 * *SNSTopicName* - Enter the SNS topic to send notification to - this must exist in US East (N. Virginia) region
-* *PublicCidr* - The public IP from which Kibana will be accessible
-* *SubnetIds* - Two public subnets for Kibana access
+* *SubnetIds* - Two subnets for the internal Kibana load balancer and Lambda functions
 * *VpcId* - The VPC to which the subnets belong
 
 The **Important App** CloudFormation template requires the following parameters:
@@ -54,7 +53,7 @@ The **Important App** CloudFormation template requires the following parameters:
 
 These CloudFormation templates are for demo and proof-of-concept purposes only.  They and are not intended for production environments.  Amongst other deficiencies, they:
 * do not follow the rule of least privileged access, and will create IAM Roles with the 'AdministratorAccess' AWS Managed policy
-* will serve public traffic from the Elasticsearch domain over unencrypted HTTP connections
+* provide Kibana access over unencrypted HTTP within the VPC
 
 ### License
 AWS Health Tools are licensed under the Apache 2.0 License.
