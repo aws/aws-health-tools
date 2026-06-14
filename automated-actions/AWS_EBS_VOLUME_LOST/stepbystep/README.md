@@ -46,18 +46,18 @@ We have encapsulated the Elasticsearch configuration and deployment steps into a
 5. Upload the file named *step\_1\_es\_ec2proxy\_reinvent\_workshop.yml*.
 6. Click **Next**.
 7. Enter a **Stack name**. Example: `ebs-es-reinvent`
-8. Enter a public CIDR that Kibana will be accessible from. This is the public IP range that you will be accessing the dashboard from. (If you aren't sure, you can find your public IP at https://www.myip.com/ and then append a /32 suffix to it. For example, if your public IP was `1.2.3.4`, you would use: `1.2.3.4/32`. **Security warning: Do NOT use `0.0.0.0/0` — this exposes your Elasticsearch/Kibana deployment to the entire internet without authentication.** Use your specific IP with a `/32` suffix (e.g. `1.2.3.4/32`)).
+8. Review the default VPC deployment parameters. The stack deploys Kibana behind a reverse proxy that is reachable only from within the VPC created by the template.
 9. Click **Next**.
 10. If desired, tag the resources by entering `Name` as the Key and `kibana_es_reinvent` as the Value.
 11. Click **Next**.
 12. Click the check box next to **I acknowledge that AWS CloudFormation might create IAM resources.**
 13. Click **Create**.
-14. Once you see CREATE_COMPLETE, select the Outputs tab and click on the link for **KibanaURL** to ensure Kibana is accessible and functioning.
+14. Once you see CREATE_COMPLETE, select the Outputs tab and use **KibanaURL** from a host inside the VPC to ensure Kibana is accessible and functioning.
 
 
 **Diagram Note:**
 
-For demo purposes, an EC2 instance running as Reverse Proxy will be deployed to this cluster to simplify access to the Kibana Console. This is certainly not the recommended method of access especially when you are accessing over the internet. In a production environment, we recommend that you deploy the Amazon Elasticsearch cluster within a private VPC and access only via VPN tunnel, Direct Connect, and/or implement token-based authentication using Cognito.
+For demo purposes, an EC2 instance running as a reverse proxy will be deployed in a private subnet to simplify access to the Kibana console without exposing it to the public internet. Access Kibana only from a host inside the VPC. If remote access is required, use a private forwarding or bastion pattern rather than exposing the proxy to the internet. In a production environment, we recommend that you keep the Amazon Elasticsearch cluster private and implement authentication controls such as Cognito.
 
 ![ES Proxy](images/ES_Proxy.png)
 

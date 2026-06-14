@@ -1,14 +1,4 @@
 AWSTemplateFormatVersion: 2010-09-09
-Parameters:
-  PublicCidr:
-    Type: String
-    Description: The public IP address that Kibana will be accessible from.
-    MinLength: 9
-    MaxLength: 18
-    Default: "10.0.0.0/8"
-    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
-    ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
-
 Mappings:
   AWSInstanceType2Arch:
     t1.micro:
@@ -105,7 +95,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.1.1.0/24
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       AvailabilityZone: !Select 
         - 0
         - Fn::GetAZs: !Ref 'AWS::Region'
@@ -113,13 +103,13 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnetA
+      SubnetId: !Ref PrivateSubnetA
   PublicSubnetB:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.1.3.0/24
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       AvailabilityZone: !Select 
         - 1
         - Fn::GetAZs: !Ref 'AWS::Region'
@@ -133,7 +123,7 @@ Resources:
     Type: AWS::EC2::NatGateway
     Properties: 
       AllocationId: !GetAtt NATEIPA.AllocationId
-      SubnetId: !Ref PublicSubnetA
+      SubnetId: !Ref PrivateSubnetA
   NATEIPA:
     Type: AWS::EC2::EIP
     Properties:
@@ -169,12 +159,11 @@ Resources:
     Properties:
       VpcId: !Ref VPC
   PrivateSubnetA:
-    DependsOn: PrivateRouteA
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.1.2.0/24
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       AvailabilityZone: !Select 
         - 0
         - Fn::GetAZs: !Ref 'AWS::Region'
@@ -184,12 +173,11 @@ Resources:
       RouteTableId: !Ref PrivateRouteTableA
       SubnetId: !Ref PrivateSubnetA
   PrivateSubnetB:
-    DependsOn: PrivateRouteB
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.1.4.0/24
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       AvailabilityZone: !Select 
         - 1
         - Fn::GetAZs: !Ref 'AWS::Region'
@@ -232,32 +220,39 @@ Resources:
   ElasticsearchSecurityGroup:
       Type: "AWS::EC2::SecurityGroup"
       Properties:
-        GroupDescription: Allows internal data loading and public access to Elasticsearch.
+        GroupDescription: Allows only the Kibana proxy and Lambda functions to access Elasticsearch.
         VpcId: !Ref VPC
         SecurityGroupIngress:
-          # -
-          #   CidrIp: !Ref PublicCidr
-          #   IpProtocol: TCP
-          #   FromPort: 80
-          #   ToPort: 80
           -
-            CidrIp: 10.1.0.0/16
+            SourceSecurityGroupId: !Ref ProxyServerSecurityGroup
             IpProtocol: TCP
-            FromPort: 0
-            ToPort: 65535
+            FromPort: 80
+            ToPort: 80
+          -
+            SourceSecurityGroupId: !Ref ProxyServerSecurityGroup
+            IpProtocol: TCP
+            FromPort: 443
+            ToPort: 443
+          -
+            SourceSecurityGroupId: !Ref ESLambdaSecurityGroup
+            IpProtocol: TCP
+            FromPort: 80
+            ToPort: 80
+          -
+            SourceSecurityGroupId: !Ref ESLambdaSecurityGroup
+            IpProtocol: TCP
+            FromPort: 443
+            ToPort: 443
+
+  ESLambdaSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Allows Lambda functions to reach the Elasticsearch domain from private subnets.
+      VpcId: !Ref VPC
 
   ####################################
   # ElasticSearch Reverse Proxy node #
   ####################################
-  ProxyEIP:
-    Type: "AWS::EC2::EIP"
-    Properties:
-      Domain: vpc
-  ProxyEIPAssociation:
-    Type: AWS::EC2::EIPAssociation
-    Properties:
-      AllocationId: !GetAtt ProxyEIP.AllocationId
-      InstanceId: !Ref ProxyServer
   ProxyServer:
     Type: AWS::EC2::Instance
     CreationPolicy:
@@ -293,7 +288,7 @@ Resources:
                               proxy_set_header Proxy-Connection "Keep-Alive";
                               proxy_set_header Authorization "";                       
                               proxy_pass https://${ESDom}/_plugin/kibana/;
-                              proxy_redirect https://${ESDom}/_plugin/kibana/ http://${PxyEIP}/kibana/;
+                              proxy_redirect https://${ESDom}/_plugin/kibana/ /kibana/;
                           }
                        
                             location ~ (/app/kibana|/app/timelion|/bundles|/es_admin|/plugins|/api|/ui|/elasticsearch) {
@@ -310,7 +305,7 @@ Resources:
                           }
                         }
                       }
-                  - { PxyEIP: !Ref ProxyEIP , ESDom: !GetAtt ElasticsearchDomain.DomainEndpoint }
+                  - { ESDom: !GetAtt ElasticsearchDomain.DomainEndpoint }
               group: root
               mode: '000400'
               owner: root
@@ -360,7 +355,7 @@ Resources:
     Properties:
       ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch, 't2.large', Arch]]      
       InstanceType: t2.large
-      SubnetId: !Ref PublicSubnetA
+      SubnetId: !Ref PrivateSubnetA
       SecurityGroupIds: 
         - !Ref ProxyServerSecurityGroup
       UserData:
@@ -373,9 +368,9 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref VPC
-      GroupDescription: "Enable HTTP access via port 80 locked down to the load balancer + SSH access"
+      GroupDescription: "Enable VPC-only HTTP access to the Kibana reverse proxy"
       SecurityGroupIngress:
-        - CidrIp: !Ref PublicCidr
+        - CidrIp: 10.1.0.0/16
           FromPort: '80'
           IpProtocol: tcp
           ToPort: '80'
@@ -387,10 +382,7 @@ Outputs:
       !Join
         - ''
         - - 'http://'
-          - !Ref ProxyEIP
-  KibanaWhitelist:
-    Description: Public IPs Kibana is accessible from.
-    Value: !Ref PublicCidr
+          - !GetAtt ProxyServer.PrivateIp
   ESDomain:
     Description: ES Domain 
     Value: !GetAtt ElasticsearchDomain.DomainEndpoint
@@ -398,7 +390,7 @@ Outputs:
       Name: !Sub "${AWS::StackName}-DomainEndpoint"
   ESLambdaSecurityGroup:
     Description: ESLambdaSecurityGroup
-    Value: !Ref ElasticsearchSecurityGroup
+    Value: !Ref ESLambdaSecurityGroup
     Export:
       Name: !Sub "${AWS::StackName}-ESLambdaSecurityGroup"
   PrivateSubnetA:

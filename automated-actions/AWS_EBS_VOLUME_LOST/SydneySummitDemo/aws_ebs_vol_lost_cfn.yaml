@@ -9,10 +9,8 @@ Parameters:
     Description: Enter the VPC that the subnets belong to.
   SubnetIds:
     Type: "List<AWS::EC2::Subnet::Id>"
-    Description: You must select AT LEAST two (2) PUBLIC subnets for demo instance, ELB, Elasticsearch domain, and Lambda load functions to work.
-  PublicCidr:
-    Type: "String"
-    Description: The public IP address that Kibana will be accessible from.
+    Description: You must select AT LEAST two (2) subnets for the demo instance, internal ELB, Elasticsearch domain, and Lambda load functions to work.
+
 
 Resources:
   # IAM Execution Role for Lambda Functions
@@ -91,7 +89,7 @@ Resources:
         SubnetIds:
           - !Select [ 0, !Ref SubnetIds ]
         SecurityGroupIds:
-          - !Ref ElasticsearchSecurityGroup
+          - !Ref ElasticsearchLambdaSecurityGroup
       ElasticsearchClusterConfig:
         InstanceCount: 1
         InstanceType: t2.small.elasticsearch
@@ -111,27 +109,55 @@ Resources:
   ElasticsearchSecurityGroup:
       Type: "AWS::EC2::SecurityGroup"
       Properties:
-        GroupDescription: Allows internal data loading and public access to Elasticsearch.
+        GroupDescription: Allows only the internal load balancer and Lambda functions to access Elasticsearch.
         VpcId: !Ref VpcId
         SecurityGroupIngress:
           -
-            CidrIp: !Ref PublicCidr
+            SourceSecurityGroupId: !Ref ElasticsearchLoadBalancerSecurityGroup
             IpProtocol: TCP
             FromPort: 80
             ToPort: 80
+          -
+            SourceSecurityGroupId: !Ref ElasticsearchLoadBalancerSecurityGroup
+            IpProtocol: TCP
+            FromPort: 443
+            ToPort: 443
+          -
+            SourceSecurityGroupId: !Ref ElasticsearchLambdaSecurityGroup
+            IpProtocol: TCP
+            FromPort: 80
+            ToPort: 80
+          -
+            SourceSecurityGroupId: !Ref ElasticsearchLambdaSecurityGroup
+            IpProtocol: TCP
+            FromPort: 443
+            ToPort: 443
+
+  ElasticsearchLoadBalancerSecurityGroup:
+      Type: "AWS::EC2::SecurityGroup"
+      Properties:
+        GroupDescription: Allows VPC-only HTTP access to the internal Kibana load balancer.
+        VpcId: !Ref VpcId
+        SecurityGroupIngress:
           -
             CidrIp: !GetAtt CustomVpcCidr.Cidr
             IpProtocol: TCP
             FromPort: 80
             ToPort: 80
+  ElasticsearchLambdaSecurityGroup:
+      Type: "AWS::EC2::SecurityGroup"
+      Properties:
+        GroupDescription: Allows Lambda functions to reach the Elasticsearch domain from the VPC.
+        VpcId: !Ref VpcId
 
   ElasticsearchELB:
     Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
     Properties:
+      Scheme: internal
       Type: application
       Subnets: !Ref SubnetIds
       SecurityGroups:
-        - !Ref ElasticsearchSecurityGroup
+        - !Ref ElasticsearchLoadBalancerSecurityGroup
 
   ElasticsearchELBTargetGroup:
     Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
@@ -176,7 +202,7 @@ Resources:
           VpcConfig:
             SubnetIds: !Ref SubnetIds
             SecurityGroupIds:
-              - !Ref ElasticsearchSecurityGroup
+              - !Ref ElasticsearchLambdaSecurityGroup
           Code:
             ZipFile: |
               import socket
@@ -545,7 +571,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !Ref ElasticsearchSecurityGroup
+          - !Ref ElasticsearchLambdaSecurityGroup
       Environment:
         Variables:
           ESDOMAIN: !GetAtt ElasticsearchDomain.DomainEndpoint
@@ -802,6 +828,4 @@ Outputs:
         - - 'http://'
           - !GetAtt ElasticsearchELB.DNSName
           - '/_plugin/kibana'
-  KibanaWhitelist:
-    Description: Public IPs Kibana is accessible from.
-    Value: !Ref PublicCidr
+
