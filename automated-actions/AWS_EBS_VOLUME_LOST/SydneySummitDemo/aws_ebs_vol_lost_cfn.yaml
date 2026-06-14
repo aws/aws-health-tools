@@ -104,9 +104,9 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: '*'
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
             Action: 'es:*'
-            Resource: '*'
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*'
 
   ElasticsearchSecurityGroup:
       Type: "AWS::EC2::SecurityGroup"
