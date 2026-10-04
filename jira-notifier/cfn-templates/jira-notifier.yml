@@ -1,0 +1,265 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Health Event Jira Notifier - Automatically creates Jira issues for scheduled maintenance and health events.'
+Parameters:
+  JiraHost:
+    Type: String
+    Description: 'Your Jira domain (e.g., mycompany.atlassian.net)'
+  JiraUserEmail:
+    Type: String
+    Description: 'Email address of the Jira user / service account'
+  JiraApiToken:
+    Type: String
+    NoEcho: true
+    Description: 'Jira API Token for authentication'
+  JiraProjectKey:
+    Type: String
+    Default: 'OPS'
+    Description: 'Jira Project Key where issues will be created (e.g., OPS)'
+  JiraIssueType:
+    Type: String
+    Default: 'Task'
+    Description: 'Jira Issue Type (e.g., Task, Incident, Service Request)'
+  EventCategoryFilter:
+    Type: String
+    Default: 'scheduledChange,issue'
+    Description: 'Comma-separated event categories to create issues for (scheduledChange, issue, accountNotification, or * for all)'
+Resources:
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  LambdaRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: JiraNotifierLambdaPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: CloudWatchLogsPermissions
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Effect: Allow
+          Resource: arn:aws:logs:*:*:*
+      Roles:
+      - Ref: LambdaFunctionRole
+  JiraNotifierLambdaFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: 'AWS Health Jira Notifier'
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+        - LambdaFunctionRole
+        - Arn
+      Environment:
+        Variables:
+          JIRA_HOST: !Ref JiraHost
+          JIRA_USER_EMAIL: !Ref JiraUserEmail
+          JIRA_API_TOKEN: !Ref JiraApiToken
+          JIRA_PROJECT_KEY: !Ref JiraProjectKey
+          JIRA_ISSUE_TYPE: !Ref JiraIssueType
+          EVENT_CATEGORY_FILTER: !Ref EventCategoryFilter
+      Code:
+        ZipFile:
+          Fn::Sub: |
+            import os
+            import json
+            import logging
+            import base64
+            from urllib.request import Request, urlopen
+            from urllib.error import URLError, HTTPError
+            from datetime import datetime
+
+            logger = logging.getLogger()
+            logger.setLevel(logging.INFO)
+
+            JIRA_HOST = os.environ.get('JIRA_HOST', '').rstrip('/')
+            JIRA_USER_EMAIL = os.environ.get('JIRA_USER_EMAIL', '')
+            JIRA_API_TOKEN = os.environ.get('JIRA_API_TOKEN', '')
+            JIRA_PROJECT_KEY = os.environ.get('JIRA_PROJECT_KEY', 'OPS')
+            JIRA_ISSUE_TYPE = os.environ.get('JIRA_ISSUE_TYPE', 'Task')
+            EVENT_CATEGORY_FILTER = os.environ.get('EVENT_CATEGORY_FILTER', 'scheduledChange,issue')
+
+            def get_auth_header(email, token):
+                credentials = f"{email}:{token}"
+                encoded_creds = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+                return f"Basic {encoded_creds}"
+
+            def parse_due_date(event_detail):
+                date_str = event_detail.get('endTime') or event_detail.get('startTime')
+                if date_str:
+                    try:
+                        dt = datetime.strptime(date_str.split('.')[0].rstrip('Z'), "%Y-%m-%dT%H:%M:%S")
+                        return dt.strftime("%Y-%m-%d")
+                    except Exception as e:
+                        logger.warning(f"Could not parse due date from string '{date_str}': {e}")
+                return None
+
+            def check_existing_issue(event_arn, auth_header):
+                short_arn = event_arn.split('/')[-1] if '/' in event_arn else event_arn
+                jql = f'project = "{JIRA_PROJECT_KEY}" AND text ~ "{short_arn}"'
+                search_url = f"https://{JIRA_HOST}/rest/api/2/search?jql={jql}"
+                req = Request(
+                    search_url,
+                    headers={
+                        'Authorization': auth_header,
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'AWS-Health-Jira-Notifier'
+                    }
+                )
+                try:
+                    with urlopen(req) as response:
+                        res_data = json.loads(response.read().decode('utf-8'))
+                        if res_data.get('total', 0) > 0:
+                            existing_key = res_data['issues'][0]['key']
+                            logger.info(f"Existing Jira issue found for event {short_arn}: {existing_key}")
+                            return existing_key
+                except Exception as e:
+                    logger.warning(f"Error checking existing Jira issues: {e}")
+                return None
+
+            def create_jira_issue(event, auth_header):
+                detail = event.get('detail', {})
+                event_arn = detail.get('eventArn', 'N/A')
+                event_type_code = detail.get('eventTypeCode', 'AWS_HEALTH_EVENT')
+                event_category = detail.get('eventTypeCategory', 'issue')
+                service = detail.get('service', 'AWS')
+                aws_account = event.get('account', 'N/A')
+                region = event.get('region', 'N/A')
+
+                if EVENT_CATEGORY_FILTER and EVENT_CATEGORY_FILTER != '*':
+                    allowed_categories = [c.strip() for c in EVENT_CATEGORY_FILTER.split(',')]
+                    if event_category not in allowed_categories:
+                        logger.info(f"Skipping event category '{event_category}' as it is not in allowed filter: {allowed_categories}")
+                        return None
+
+                existing_issue = check_existing_issue(event_arn, auth_header)
+                if existing_issue:
+                    logger.info(f"Issue {existing_issue} already exists for this event. Skipping creation.")
+                    return existing_issue
+
+                descriptions = detail.get('eventDescription', [])
+                latest_description = descriptions[0].get('latestDescription', 'No description provided.') if descriptions else 'No description provided.'
+
+                affected_entities = detail.get('affectedEntities', [])
+                entity_values = [entity.get('entityValue') for entity in affected_entities if entity.get('entityValue')]
+                entities_str = ", ".join(entity_values) if entity_values else "N/A"
+
+                summary = f"[AWS Health] [{service}] {event_type_code}"
+                if entity_values:
+                    summary += f" - {entity_values[0]}" if len(entity_values) == 1 else f" ({len(entity_values)} resources affected)"
+
+                phd_url = f"https://phd.aws.amazon.com/phd/home?region={region}#/event-log?eventID={event_arn}"
+                start_time = detail.get('startTime', 'N/A')
+                end_time = detail.get('endTime', 'N/A')
+
+                jira_description = (
+                    f"h2. AWS Health Event Notification\n\n"
+                    f"*Service:* {service}\n"
+                    f"*Event Type:* {event_type_code}\n"
+                    f"*Category:* {event_category}\n"
+                    f"*AWS Account:* {aws_account}\n"
+                    f"*Region:* {region}\n"
+                    f"*Start Time:* {start_time}\n"
+                    f"*End Time / Deadline:* {end_time}\n"
+                    f"*Affected Resources:* {entities_str}\n\n"
+                    f"h3. Event Details\n"
+                    f"{latest_description}\n\n"
+                    f"h3. Actions\n"
+                    f"View in AWS Personal Health Dashboard: [{phd_url}]\n\n"
+                    f"_Event ARN: {event_arn}_"
+                )
+
+                issue_fields = {
+                    "project": { "key": JIRA_PROJECT_KEY },
+                    "summary": summary,
+                    "description": jira_description,
+                    "issuetype": { "name": JIRA_ISSUE_TYPE },
+                    "labels": ["aws-health", service.lower(), event_category.lower()]
+                }
+
+                due_date = parse_due_date(detail)
+                if due_date:
+                    issue_fields["duedate"] = due_date
+
+                if event_category == 'issue':
+                    issue_fields["priority"] = {"name": "High"}
+                elif event_category == 'scheduledChange':
+                    issue_fields["priority"] = {"name": "Medium"}
+
+                payload = json.dumps({"fields": issue_fields})
+                create_url = f"https://{JIRA_HOST}/rest/api/2/issue"
+
+                req = Request(
+                    create_url,
+                    data=payload.encode('utf-8'),
+                    headers={
+                        'Authorization': auth_header,
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'AWS-Health-Jira-Notifier'
+                    }
+                )
+
+                try:
+                    with urlopen(req) as response:
+                        result = json.loads(response.read().decode('utf-8'))
+                        issue_key = result.get('key')
+                        logger.info(f"Created Jira issue {issue_key} for event ARN: {event_arn}")
+                        return issue_key
+                except HTTPError as e:
+                    error_body = e.read().decode('utf-8')
+                    logger.error(f"Failed to create Jira issue. HTTP {e.code}: {e.reason}. Response: {error_body}")
+                    raise
+                except URLError as e:
+                    logger.error(f"Failed to connect to Jira host '{JIRA_HOST}': {e.reason}")
+                    raise
+
+            def handler(event, context):
+                logger.info("Received event: " + json.dumps(event))
+                auth_header = get_auth_header(JIRA_USER_EMAIL, JIRA_API_TOKEN)
+                issue_key = create_jira_issue(event, auth_header)
+                return {
+                    "statusCode": 200,
+                    "body": json.dumps({"message": "Processed successfully", "jiraIssueKey": issue_key})
+                }
+      Runtime: python3.11
+      Timeout: '60'
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+        - JiraNotifierLambdaFn
+        - Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - CloudWatchEventRule
+        - Arn
+  CloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: EventRule for AWS Health Events
+      EventPattern:
+        source:
+        - aws.health
+      State: ENABLED
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - JiraNotifierLambdaFn
+          - Arn
+        Id: JiraNotifierLambdaFn
